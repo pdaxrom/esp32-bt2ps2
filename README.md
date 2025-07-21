@@ -1,4 +1,4 @@
-1/9/24: Serial Mouse support is out for v0.7! Check notes on release
+1/9/24: Serial Mouse support is out for v0.7! Check notes on [release](https://github.com/Hamberthm/esp32-bt2ps2/releases)
 
 24/8/24: Mouse and Multimedia Key support is out for v0.6! Check notes on release
 
