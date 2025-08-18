@@ -719,7 +719,7 @@ void BTKeyboard::handle_ble_device_result(esp_ble_gap_cb_param_t *param)
     }
   }
 
-  if (uuid == ESP_GATT_UUID_HID_SVC || isLastBonded == true)
+  if (uuid == ESP_GATT_UUID_HID_SVC || appearance == ESP_HID_APPEARANCE_MOUSE || appearance == ESP_HID_APPEARANCE_KEYBOARD || isLastBonded == true)
   {
     add_ble_scan_result(param->scan_rst.bda,
                         param->scan_rst.ble_addr_type,
