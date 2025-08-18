@@ -796,6 +796,7 @@ namespace esp32_ps2dev
       while (write((uint8_t)Command::BAT_SUCCESS) != 0)
         delay(1);
       _data_reporting_enabled = true; // some systems don't enable data reporting after issuing a RESET command, so we do it by default
+      scan_code_set = 2;
       break;
     case Command::RESEND: // resend
 #if defined(_ESP32_PS2DEV_DEBUG_)
@@ -847,8 +848,18 @@ namespace esp32_ps2dev
       printf("PS2Keyboard::reply_to_host: Set scan code set command received");
 #endif // _ESP32_PS2DEV_DEBUG_
       ack();
-      if (!read(&val))
-        ack(); // do nothing with the rate
+      if (!read(&val)) {
+        ack();
+        if (val == 0) {
+          static const uint8_t resp[] = { 0x43, 0x41, 0x3F };
+          delayMicroseconds(BYTE_INTERVAL_MICROS);
+          write(resp[scan_code_set]);
+          delayMicroseconds(BYTE_INTERVAL_MICROS);
+          break;
+        } else if (val == 2 || val == 3) {
+          scan_code_set = val;
+        }
+      }
       break;
     case Command::ECHO: // echo
 #if defined(_ESP32_PS2DEV_DEBUG_)
@@ -894,10 +905,10 @@ namespace esp32_ps2dev
     if (!_data_reporting_enabled)
       return;
     PS2Packet packet;
-    packet.len = scancodes::MAKE_CODES_LEN[key];
+    packet.len = (scan_code_set == 3) ? scancodes::MAKE_SET3_CODES_LEN[key] : scancodes::MAKE_CODES_LEN[key];
     for (uint8_t i = 0; i < packet.len; i++)
     {
-      packet.data[i] = scancodes::MAKE_CODES[key][i];
+      packet.data[i] = (scan_code_set == 3) ? scancodes::MAKE_SET3_CODES[key][i] : scancodes::MAKE_CODES[key][i];
     }
     send_packet(&packet);
   }
@@ -906,10 +917,10 @@ namespace esp32_ps2dev
     if (!_data_reporting_enabled)
       return;
     PS2Packet packet;
-    packet.len = scancodes::BREAK_CODES_LEN[key];
+    packet.len = (scan_code_set == 3) ? scancodes::BREAK_SET3_CODES_LEN[key] : scancodes::BREAK_CODES_LEN[key];
     for (uint8_t i = 0; i < packet.len; i++)
     {
-      packet.data[i] = scancodes::BREAK_CODES[key][i];
+      packet.data[i] = (scan_code_set == 3) ? scancodes::BREAK_SET3_CODES[key][i] : scancodes::BREAK_CODES[key][i];
     }
     send_packet(&packet);
   }
@@ -1554,6 +1565,9 @@ namespace esp32_ps2dev
     case 0x31:
       key = scancodes::Key::K_BACKSLASH;
       break;
+    case 0x32:
+      key = scancodes::Key::K_BACKSLASH;
+      break;
     case 0x33:
       key = scancodes::Key::K_SEMICOLON;
       break;
@@ -1700,6 +1714,9 @@ namespace esp32_ps2dev
       break;
     case 0x63:
       key = scancodes::Key::K_KP_PERIOD;
+      break;
+    case 0x64:
+      key = scancodes::Key::K_BACKQUOTE;
       break;
     case 0x65:
       key = scancodes::Key::K_MENU;

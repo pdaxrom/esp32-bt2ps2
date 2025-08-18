@@ -13,7 +13,7 @@
 #include "esp_timer.h"
 #include "esp_log.h"
 #include <stdint.h>
-#include "scan_codes_set_2.h"
+#include "scan_codes.h"
 #include <nvs_flash.h>
 #include <string>
 
@@ -212,6 +212,7 @@ namespace esp32_ps2dev
     bool _led_scroll_lock = false;
     bool _led_num_lock = false;
     bool _led_caps_lock = false;
+    int scan_code_set = 2;
   };
 
   void _taskfn_process_host_request(void *arg);
