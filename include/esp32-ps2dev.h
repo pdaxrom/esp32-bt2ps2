@@ -184,6 +184,13 @@ namespace esp32_ps2dev
       RESET = 0xFF,
       RESEND = 0xFE,
       ACK = 0xFA,
+      SET_SPECIFIC_KEY_TO_MAKE_ONLY = 0xFD,
+      SET_SPECIFIC_KEY_TO_MAKE_RELEASE = 0xFC,
+      SET_SPECIFIC_KEY_TO_TYPEMATIC_AUTOREPEAT_ONLY=0xFB,
+      SET_ALL_KEYS_TO_TYPEMATIC_AUTOREPEAT_MAKE_RELEASE = 0xFA,
+      SET_ALL_KEYS_TO_MAKE_ONLY = 0xF9,
+      SET_ALL_KEYS_TO_MAKE_RELEASE = 0xF8,
+      SET_ALL_KEYS_TO_TYPEMATIC_AUTOREPEAT_ONLY = 0xF7,
       SET_DEFAULTS = 0xF6,
       DISABLE_DATA_REPORTING = 0xF5,
       ENABLE_DATA_REPORTING = 0xF4,
@@ -212,7 +219,9 @@ namespace esp32_ps2dev
     bool _led_scroll_lock = false;
     bool _led_num_lock = false;
     bool _led_caps_lock = false;
-    int scan_code_set = 2;
+    int _scan_code_set = 2;
+    // scancode set 3 parameters
+    bool _all_keys_to_make_only = false;
   };
 
   void _taskfn_process_host_request(void *arg);
