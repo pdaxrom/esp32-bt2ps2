@@ -1,5 +1,8 @@
 #pragma once
 
+// https://aeb.win.tue.nl/linux/kbd/scancodes-10.html
+// https://aeb.win.tue.nl/linux/kbd/table.h
+
 const uint8_t MAKE_SET3_K_A[] = {0x1C};
 const uint8_t MAKE_SET3_K_B[] = {0x32};
 const uint8_t MAKE_SET3_K_C[] = {0x21};
@@ -107,24 +110,24 @@ const uint8_t MAKE_SET3_K_SLASH[] = {0x4A};
 const uint8_t MAKE_SET3_K_ACPI_POWER[] = {0x00};
 const uint8_t MAKE_SET3_K_ACPI_SLEEP[] = {0x54};
 const uint8_t MAKE_SET3_K_ACPI_WAKE[] = {0x00};
-const uint8_t MAKE_SET3_K_MEDIA_NEXT_TRACK[] = {0xE0, 0x4D};
-const uint8_t MAKE_SET3_K_MEDIA_PREV_TRACK[] = {0xE0, 0x15};
-const uint8_t MAKE_SET3_K_MEDIA_STOP[] = {0xE0, 0x3B};
-const uint8_t MAKE_SET3_K_MEDIA_PLAY_PAUSE[] = {0xE0, 0x34};
-const uint8_t MAKE_SET3_K_MEDIA_MUTE[] = {0xE0, 0x23};
-const uint8_t MAKE_SET3_K_MEDIA_VOLUME_UP[] = {0xE0, 0x32};
-const uint8_t MAKE_SET3_K_MEDIA_VOLUME_DOWN[] = {0xE0, 0x21};
-const uint8_t MAKE_SET3_K_MEDIA_MEDIA_SELECT[] = {0xE0, 0x50};
-const uint8_t MAKE_SET3_K_MEDIA_EMAIL[] = {0xE0, 0x48};
-const uint8_t MAKE_SET3_K_MEDIA_CALC[] = {0xE0, 0x2B};
-const uint8_t MAKE_SET3_K_MEDIA_MY_COMPUTER[] = {0xE0, 0x40};
-const uint8_t MAKE_SET3_K_MEDIA_WWW_SEARCH[] = {0xE0, 0x10};
-const uint8_t MAKE_SET3_K_MEDIA_WWW_HOME[] = {0xE0, 0x3A};
-const uint8_t MAKE_SET3_K_MEDIA_WWW_BACK[] = {0xE0, 0x38};
-const uint8_t MAKE_SET3_K_MEDIA_WWW_FORWARD[] = {0xE0, 0x30};
-const uint8_t MAKE_SET3_K_MEDIA_WWW_STOP[] = {0xE0, 0x28};
-const uint8_t MAKE_SET3_K_MEDIA_WWW_REFRESH[] = {0xE0, 0x20};
-const uint8_t MAKE_SET3_K_MEDIA_WWW_FAVORITES[] = {0xE0, 0x18};
+const uint8_t MAKE_SET3_K_MEDIA_NEXT_TRACK[] = {0x00};
+const uint8_t MAKE_SET3_K_MEDIA_PREV_TRACK[] = {0x00};
+const uint8_t MAKE_SET3_K_MEDIA_STOP[] = {0x00};
+const uint8_t MAKE_SET3_K_MEDIA_PLAY_PAUSE[] = {0x00};
+const uint8_t MAKE_SET3_K_MEDIA_MUTE[] = {0x00};
+const uint8_t MAKE_SET3_K_MEDIA_VOLUME_UP[] = {0x00};
+const uint8_t MAKE_SET3_K_MEDIA_VOLUME_DOWN[] = {0x00};
+const uint8_t MAKE_SET3_K_MEDIA_MEDIA_SELECT[] = {0x00};
+const uint8_t MAKE_SET3_K_MEDIA_EMAIL[] = {0x48};
+const uint8_t MAKE_SET3_K_MEDIA_CALC[] = {0x99};
+const uint8_t MAKE_SET3_K_MEDIA_MY_COMPUTER[] = {0x40};
+const uint8_t MAKE_SET3_K_MEDIA_WWW_SEARCH[] = {0x10};
+const uint8_t MAKE_SET3_K_MEDIA_WWW_HOME[] = {0x97};
+const uint8_t MAKE_SET3_K_MEDIA_WWW_BACK[] = {0x38};
+const uint8_t MAKE_SET3_K_MEDIA_WWW_FORWARD[] = {0x30};
+const uint8_t MAKE_SET3_K_MEDIA_WWW_STOP[] = {0x28};
+const uint8_t MAKE_SET3_K_MEDIA_WWW_REFRESH[] = {0x20};
+const uint8_t MAKE_SET3_K_MEDIA_WWW_FAVORITES[] = {0x18};
 
 const uint8_t BREAK_SET3_K_A[] = {0xF0, 0x1C};
 const uint8_t BREAK_SET3_K_B[] = {0xF0, 0x32};
@@ -233,24 +236,24 @@ const uint8_t BREAK_SET3_K_SLASH[] = {0xF0, 0x4A};
 const uint8_t BREAK_SET3_K_ACPI_POWER[] = {0xF0, 0x00};
 const uint8_t BREAK_SET3_K_ACPI_SLEEP[] = {0xF0, 0x54};
 const uint8_t BREAK_SET3_K_ACPI_WAKE[] = {0xF0, 0x00};
-const uint8_t BREAK_SET3_K_MEDIA_NEXT_TRACK[] = {0xE0, 0xF0, 0x4D};
-const uint8_t BREAK_SET3_K_MEDIA_PREV_TRACK[] = {0xE0, 0xF0, 0x15};
-const uint8_t BREAK_SET3_K_MEDIA_STOP[] = {0xE0, 0xF0, 0x3B};
-const uint8_t BREAK_SET3_K_MEDIA_PLAY_PAUSE[] = {0xE0, 0xF0, 0x34};
-const uint8_t BREAK_SET3_K_MEDIA_MUTE[] = {0xE0, 0xF0, 0x23};
-const uint8_t BREAK_SET3_K_MEDIA_VOLUME_UP[] = {0xE0, 0xF0, 0x32};
-const uint8_t BREAK_SET3_K_MEDIA_VOLUME_DOWN[] = {0xE0, 0xF0, 0x21};
-const uint8_t BREAK_SET3_K_MEDIA_MEDIA_SELECT[] = {0xE0, 0xF0, 0x50};
-const uint8_t BREAK_SET3_K_MEDIA_EMAIL[] = {0xE0, 0xF0, 0x48};
-const uint8_t BREAK_SET3_K_MEDIA_CALC[] = {0xE0, 0xF0, 0x2B};
-const uint8_t BREAK_SET3_K_MEDIA_MY_COMPUTER[] = {0xE0, 0xF0, 0x40};
-const uint8_t BREAK_SET3_K_MEDIA_WWW_SEARCH[] = {0xE0, 0xF0, 0x10};
-const uint8_t BREAK_SET3_K_MEDIA_WWW_HOME[] = {0xE0, 0xF0, 0x3A};
-const uint8_t BREAK_SET3_K_MEDIA_WWW_BACK[] = {0xE0, 0xF0, 0x38};
-const uint8_t BREAK_SET3_K_MEDIA_WWW_FORWARD[] = {0xE0, 0xF0, 0x30};
-const uint8_t BREAK_SET3_K_MEDIA_WWW_STOP[] = {0xE0, 0xF0, 0x28};
-const uint8_t BREAK_SET3_K_MEDIA_WWW_REFRESH[] = {0xE0, 0xF0, 0x20};
-const uint8_t BREAK_SET3_K_MEDIA_WWW_FAVORITES[] = {0xE0, 0xF0, 0x18};
+const uint8_t BREAK_SET3_K_MEDIA_NEXT_TRACK[] = {0xF0, 0x00};
+const uint8_t BREAK_SET3_K_MEDIA_PREV_TRACK[] = {0xF0, 0x00};
+const uint8_t BREAK_SET3_K_MEDIA_STOP[] = {0xF0, 0x00};
+const uint8_t BREAK_SET3_K_MEDIA_PLAY_PAUSE[] = {0xF0, 0x00};
+const uint8_t BREAK_SET3_K_MEDIA_MUTE[] = {0xF0, 0x00};
+const uint8_t BREAK_SET3_K_MEDIA_VOLUME_UP[] = {0xF0, 0x00};
+const uint8_t BREAK_SET3_K_MEDIA_VOLUME_DOWN[] = {0xF0, 0x00};
+const uint8_t BREAK_SET3_K_MEDIA_MEDIA_SELECT[] = {0xF0, 0x00};
+const uint8_t BREAK_SET3_K_MEDIA_EMAIL[] = {0xF0, 0x48};
+const uint8_t BREAK_SET3_K_MEDIA_CALC[] = {0xF0, 0x99};
+const uint8_t BREAK_SET3_K_MEDIA_MY_COMPUTER[] = {0xF0, 0x40};
+const uint8_t BREAK_SET3_K_MEDIA_WWW_SEARCH[] = {0xF0, 0x10};
+const uint8_t BREAK_SET3_K_MEDIA_WWW_HOME[] = {0xF0, 0x97};
+const uint8_t BREAK_SET3_K_MEDIA_WWW_BACK[] = {0xF0, 0x38};
+const uint8_t BREAK_SET3_K_MEDIA_WWW_FORWARD[] = {0xF0, 0x30};
+const uint8_t BREAK_SET3_K_MEDIA_WWW_STOP[] = {0xF0, 0x28};
+const uint8_t BREAK_SET3_K_MEDIA_WWW_REFRESH[] = {0xF0, 0x20};
+const uint8_t BREAK_SET3_K_MEDIA_WWW_FAVORITES[] = {0xF0, 0x18};
 
 const uint8_t* const MAKE_SET3_CODES[] = {MAKE_SET3_K_A,
                                      MAKE_SET3_K_B,
