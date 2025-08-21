@@ -224,6 +224,7 @@ extern "C"
 
         mouse.begin(true); // true parameter indicates we want to recover previous mouse state from NVS
         keyboard.begin();
+        keyboard.set_led_callback(bt_keyboard.set_leds);
         mouse_serial.setup(SERIAL_MOUSE_RS232_RTS, SERIAL_MOUSE_RS232_RX);
 
         gpio_set_level(GPIO_NUM_2, 0);

@@ -201,6 +201,9 @@ namespace esp32_ps2dev
       SET_RESET_LEDS = 0xED,
       BAT_SUCCESS = 0xAA,
     };
+
+    typedef void (*_callback)(uint8_t);
+
     void begin();
     bool data_reporting_enabled();
     bool is_scroll_lock_led_on();
@@ -214,6 +217,9 @@ namespace esp32_ps2dev
     void keyHid_send(uint8_t btkey, bool keyDown);
     void keyHid_send_CCONTROL(uint16_t btkey, bool keyDown);
 
+    void set_led_callback(_callback cb) { led_callback = cb; }
+    void trigger_led_callback(uint8_t leds) { if (led_callback != nullptr) led_callback(leds); }
+
   protected:
     bool _data_reporting_enabled = true;
     bool _led_scroll_lock = false;
@@ -222,6 +228,7 @@ namespace esp32_ps2dev
     int _scan_code_set = 2;
     // scancode set 3 parameters
     bool _all_keys_to_make_only = false;
+    _callback led_callback = nullptr;
   };
 
   void _taskfn_process_host_request(void *arg);
