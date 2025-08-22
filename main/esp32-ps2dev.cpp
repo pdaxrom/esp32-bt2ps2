@@ -1,5 +1,4 @@
 #include "esp32-ps2dev.h"
-#include "bt_keyboard.hpp"
 
 #define NOP() asm volatile("nop")
 #define HIGH 0x1
@@ -886,18 +885,10 @@ namespace esp32_ps2dev
         while (write(0xFA) != 0)
           delay(1);
         delayMicroseconds(BYTE_INTERVAL_MICROS);
-        _led_scroll_lock = ((val & 1) != 0);
-        _led_num_lock = ((val & 2) != 0);
-        _led_caps_lock = ((val & 4) != 0);
-
-        uint8_t leds = BTKeyboard::KeyLed::KEYBOARD_LED_OFF;
-        if (_led_scroll_lock)
-          leds |= BTKeyboard::KeyLed::KEYBOARD_LED_SCROLLLOCK;
-        if (_led_num_lock)
-          leds |= BTKeyboard::KeyLed::KEYBOARD_LED_NUMLOCK;
-        if (_led_caps_lock)
-          leds |= BTKeyboard::KeyLed::KEYBOARD_LED_CAPSLOCK;
-        trigger_led_callback(leds);
+        _led_scroll_lock = ((val & KeyLed::KEYBOARD_LED_SCROLLLOCK) != 0);
+        _led_num_lock = ((val & KeyLed::KEYBOARD_LED_NUMLOCK) != 0);
+        _led_caps_lock = ((val & KeyLed::KEYBOARD_LED_CAPSLOCK) != 0);
+        trigger_leds_callback(val);
       }
       return 1;
       break;

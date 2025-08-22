@@ -69,7 +69,6 @@ public:
 
   enum KeyLed : uint8_t
   {
-    KEYBOARD_LED_OFF = 0,
     KEYBOARD_LED_NUMLOCK = 1 << 0,
     KEYBOARD_LED_CAPSLOCK = 1 << 1,
     KEYBOARD_LED_SCROLLLOCK = 1 << 2,

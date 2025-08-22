@@ -41,8 +41,8 @@
 #define WAIT_BLE_CB() xSemaphoreTake(ble_hidh_cb_semaphore, portMAX_DELAY)
 #define SEND_BLE_CB() xSemaphoreGive(ble_hidh_cb_semaphore)
 
-#define DEVICE_SET_LOCK() xSemaphoreTake(led_device_map_semaphore, portMAX_DELAY)
-#define DEVICE_SET_UNLOCK() xSemaphoreGive(led_device_map_semaphore)
+#define LED_DEVICE_MAP_LOCK() xSemaphoreTake(led_device_map_semaphore, portMAX_DELAY)
+#define LED_DEVICE_MAP_UNLOCK() xSemaphoreGive(led_device_map_semaphore)
 
 SemaphoreHandle_t BTKeyboard::bt_hidh_cb_semaphore = nullptr;
 SemaphoreHandle_t BTKeyboard::ble_hidh_cb_semaphore = nullptr;
@@ -1286,12 +1286,12 @@ void BTKeyboard::hidh_callback(void *handler_args, esp_event_base_t base, int32_
         // as it could connect outside the SCAN routines at boot
         lastConnected.transport = tra;
         std::copy(bda, bda + ESP_BD_ADDR_LEN, lastConnected.bda);
-        DEVICE_SET_LOCK();
+        LED_DEVICE_MAP_LOCK();
         size_t map_index;
         size_t report_id;
         if (find_output_report(param->open.dev, map_index, report_id))
           led_device_map[bda_to_string(bda)] = { param->input.dev, map_index, report_id };
-        DEVICE_SET_UNLOCK();
+        LED_DEVICE_MAP_UNLOCK();
       }
       else
       {
@@ -1402,11 +1402,11 @@ void BTKeyboard::hidh_callback(void *handler_args, esp_event_base_t base, int32_
       const uint8_t *bda = esp_hidh_dev_bda_get(param->close.dev);
       ESP_LOGI(TAG, ESP_BD_ADDR_STR " CLOSE: %s REASON: %i", ESP_BD_ADDR_HEX(bda), esp_hidh_dev_name_get(param->close.dev), param->close.reason);
 
-      DEVICE_SET_LOCK();
+      LED_DEVICE_MAP_LOCK();
       auto it = led_device_map.find(bda_to_string(esp_hidh_dev_bda_get(param->close.dev)));
       if (it != led_device_map.end())
         led_device_map.erase(it);
-      DEVICE_SET_UNLOCK();
+      LED_DEVICE_MAP_UNLOCK();
     }
     isConnected = false;
     break;
@@ -1947,7 +1947,7 @@ int16_t BTKeyboard::getBits(const void *Data, uint16_t StartBit, uint16_t NumBit
 
 void BTKeyboard::set_leds(uint8_t leds)
 {
-  DEVICE_SET_LOCK();
+  LED_DEVICE_MAP_LOCK();
   for (auto& pair: led_device_map)
   {
     led_device_info &info = pair.second;
@@ -1957,5 +1957,5 @@ void BTKeyboard::set_leds(uint8_t leds)
       ESP_LOGE(TAG, "Failed to set LED state: %s", esp_err_to_name(ret));
     }
   }
-  DEVICE_SET_UNLOCK();
+  LED_DEVICE_MAP_UNLOCK();
 }

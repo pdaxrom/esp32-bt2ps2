@@ -202,7 +202,13 @@ namespace esp32_ps2dev
       BAT_SUCCESS = 0xAA,
     };
 
-    typedef void (*_callback)(uint8_t);
+    enum KeyLed: uint8_t {
+      KEYBOARD_LED_SCROLLLOCK = 1 << 0,
+      KEYBOARD_LED_NUMLOCK = 1 << 1,
+      KEYBOARD_LED_CAPSLOCK = 1 << 2,
+    };
+
+    typedef void (*_leds_callback)(uint8_t);
 
     void begin();
     bool data_reporting_enabled();
@@ -217,8 +223,8 @@ namespace esp32_ps2dev
     void keyHid_send(uint8_t btkey, bool keyDown);
     void keyHid_send_CCONTROL(uint16_t btkey, bool keyDown);
 
-    void set_led_callback(_callback cb) { led_callback = cb; }
-    void trigger_led_callback(uint8_t leds) { if (led_callback != nullptr) led_callback(leds); }
+    void set_leds_callback(_leds_callback cb) { leds_callback = cb; }
+    void trigger_leds_callback(uint8_t leds) { if (leds_callback != nullptr) leds_callback(leds); }
 
   protected:
     bool _data_reporting_enabled = true;
@@ -228,7 +234,7 @@ namespace esp32_ps2dev
     int _scan_code_set = 2;
     // scancode set 3 parameters
     bool _all_keys_to_make_only = false;
-    _callback led_callback = nullptr;
+    _leds_callback leds_callback = nullptr;
   };
 
   void _taskfn_process_host_request(void *arg);
