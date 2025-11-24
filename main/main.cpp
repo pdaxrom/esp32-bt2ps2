@@ -14,6 +14,7 @@ Never stop dreaming.
 #include "driver/gpio.h"
 #include <iostream>
 #include <cmath>
+#include <algorithm>
 #include "bt_keyboard.hpp" // Interface with a BT/BLE peripheral device (Keyboard & Mouse)
 #include "esp32-ps2dev.h"  // Emulate a PS/2 device
 #include "serial_mouse.h"  // Emulate a serial mouse
@@ -375,13 +376,11 @@ extern "C"
             esp_restart(); // fun aborted
         }
 
-        // time variables, don't adjust unless you know what you're doing
-        uint8_t typematicRate = 20;    // characters per second in Typematic mode
-        uint16_t typematicDelay = 500; // ms to become Typematic
-
-        // fixed stuff
-        uint8_t cycle = 1000 / typematicRate;            // keywait timeout in ms. Important so we can check connection and do Typematic
-        TickType_t repeat_period = pdMS_TO_TICKS(cycle); // keywait timeout in ticks. Important so we can check connection and do Typematic
+        // typematic configuration (can be updated by host)
+        uint8_t typematicConfig = keyboard.get_typematic_config();
+        uint16_t typematicDelay = keyboard.get_typematic_delay_ms();
+        uint16_t typematicCycle = keyboard.get_typematic_cycle_ms();
+        TickType_t repeat_period = pdMS_TO_TICKS(std::max<uint16_t>(typematicCycle, 1));
         BTKeyboard::KeyInfo info;                        // freshly received
         BTKeyboard::KeyInfo infoBuf;                     // currently pressed
         BTKeyboard::KeyInfo_CCONTROL infoCCONTROL;       // freshly received multimedia (CCONTROL) keys
@@ -406,6 +405,16 @@ extern "C"
 
         while (true)
         {
+            uint8_t configNow = keyboard.get_typematic_config();
+            if (configNow != typematicConfig)
+            {
+                typematicConfig = configNow;
+                typematicDelay = keyboard.get_typematic_delay_ms();
+                typematicCycle = keyboard.get_typematic_cycle_ms();
+                repeat_period = pdMS_TO_TICKS(std::max<uint16_t>(typematicCycle, 1));
+                typematicLeft = typematicDelay;
+            }
+
             if (bt_keyboard.wait_for_low_event(info, repeat_period))
             {
                 if (info.modifier != infoBuf.modifier)
@@ -434,7 +443,7 @@ extern "C"
 
             else
             {
-                handle_typematic(infoBuf, typematicLeft, cycle);
+                handle_typematic(infoBuf, typematicLeft, typematicCycle);
 
                 if (!pairingRequested)
                 {

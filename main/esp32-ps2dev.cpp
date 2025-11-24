@@ -200,6 +200,13 @@ namespace esp32_ps2dev
     constexpr KeyBehavior BEHAVIOR_MAKE_BREAK{true, true, false};
     constexpr KeyBehavior BEHAVIOR_MAKE_ONLY{true, false, false};
     constexpr KeyBehavior BEHAVIOR_TYP_MAKE_BREAK{true, true, true};
+
+    constexpr uint16_t RATE_CYCLE_TABLE[32] = {
+        33, 37, 40, 46, 50, 54, 58, 63,
+        67, 72, 77, 83, 90, 96, 105, 112,
+        125, 133, 143, 154, 167, 182, 200, 222,
+        250, 286, 313, 333, 370, 400, 435, 476};
+    constexpr uint16_t DELAY_TABLE[4] = {250, 500, 750, 1000};
   } // namespace
 
   // THIS SECTION DEFINES THE FUNCTIONS USED BELOW AS IMPLEMENTED IN THE ARDUINO CORE FOR ESP32
@@ -930,6 +937,7 @@ namespace esp32_ps2dev
     write(0xAA);
     xSemaphoreGive(_mutex_bus);
     apply_behavior_to_all(BEHAVIOR_TYP_MAKE_BREAK);
+    update_typematic(_typematic_config);
   }
   void PS2Keyboard::apply_behavior_to_all(const KeyBehavior &behavior)
   {
@@ -954,6 +962,17 @@ namespace esp32_ps2dev
     if (mapped == INVALID_KEY)
       return false;
     return _key_behaviors[static_cast<size_t>(mapped)].typematic;
+  }
+
+  void PS2Keyboard::update_typematic(uint8_t config)
+  {
+    _typematic_config = config;
+    uint8_t delay_index = (config >> 5) & 0x03;
+    if (delay_index > 3)
+      delay_index = 3;
+    _typematic_delay_ms = DELAY_TABLE[delay_index];
+    uint8_t rate_index = config & 0x1F;
+    _typematic_cycle_ms = RATE_CYCLE_TABLE[rate_index];
   }
   void PS2Keyboard::configure_specific_key(uint8_t scan_code, const KeyBehavior &behavior)
   {
@@ -1027,7 +1046,10 @@ namespace esp32_ps2dev
 #endif // _ESP32_PS2DEV_DEBUG_
       ack();
       if (!read(&val))
-        ack(); // do nothing with the rate
+      {
+        ack();
+        update_typematic(val);
+      }
       break;
     case Command::GET_DEVICE_ID: // get device id
 #if defined(_ESP32_PS2DEV_DEBUG_)

@@ -232,6 +232,9 @@ namespace esp32_ps2dev
     void keyHid_send(uint8_t btkey, bool keyDown);
     void keyHid_send_CCONTROL(uint16_t btkey, bool keyDown);
     bool allows_typematic(uint8_t hid_code) const;
+    uint16_t get_typematic_delay_ms() const { return _typematic_delay_ms; }
+    uint16_t get_typematic_cycle_ms() const { return _typematic_cycle_ms; }
+    uint8_t get_typematic_config() const { return _typematic_config; }
 
     void set_leds_callback(_leds_callback cb) { leds_callback = cb; }
     void trigger_leds_callback(uint8_t leds) { if (leds_callback != nullptr) leds_callback(leds); }
@@ -248,6 +251,10 @@ namespace esp32_ps2dev
     void configure_specific_key(uint8_t scan_code, const KeyBehavior &behavior);
     const KeyBehavior &behavior_for_key(scancodes::Key key) const;
     bool allows_typematic_for_key(scancodes::Key key) const;
+    void update_typematic(uint8_t config);
+    uint8_t _typematic_config = 0x0B; // default 500ms delay, ~10.9cps
+    uint16_t _typematic_delay_ms = 500;
+    uint16_t _typematic_cycle_ms = 50;
     _leds_callback leds_callback = nullptr;
   };
 
