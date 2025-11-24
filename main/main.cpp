@@ -154,16 +154,16 @@ void handle_typematic(const BTKeyboard::KeyInfo &infoBuf, int &typematicLeft, in
 
     for (int i = 1; i < BTKeyboard::MAX_KEY_COUNT; i++)
     {
-        if (infoBuf.keys[i] == 0)
+    if (infoBuf.keys[i] == 0)
+    {
+        uint8_t repeat_key = infoBuf.keys[i - 1];
+        if (repeat_key != CAPS_LOCK_HID && keyboard.allows_typematic(repeat_key))
         {
-            uint8_t repeat_key = infoBuf.keys[i - 1];
-            if (repeat_key != CAPS_LOCK_HID)
-            {
-                ESP_LOGD(TAG, "Down key: %x", repeat_key);
-                keyboard.keyHid_send(repeat_key, true); // Resend the last key
-            }
-            break;
+            ESP_LOGD(TAG, "Down key: %x", repeat_key);
+            keyboard.keyHid_send(repeat_key, true); // Resend the last key
         }
+        break;
+    }
     }
 }
 

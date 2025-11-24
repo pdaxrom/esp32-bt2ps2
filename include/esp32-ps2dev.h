@@ -209,6 +209,14 @@ namespace esp32_ps2dev
       KEYBOARD_LED_CAPSLOCK = 1 << 2,
     };
 
+    struct KeyBehavior
+    {
+      bool make = true;
+      bool break_code = true;
+      bool typematic = true;
+    };
+
+  public:
     typedef void (*_leds_callback)(uint8_t);
 
     void begin();
@@ -223,6 +231,7 @@ namespace esp32_ps2dev
     void type(const char *str);
     void keyHid_send(uint8_t btkey, bool keyDown);
     void keyHid_send_CCONTROL(uint16_t btkey, bool keyDown);
+    bool allows_typematic(uint8_t hid_code) const;
 
     void set_leds_callback(_leds_callback cb) { leds_callback = cb; }
     void trigger_leds_callback(uint8_t leds) { if (leds_callback != nullptr) leds_callback(leds); }
@@ -233,11 +242,12 @@ namespace esp32_ps2dev
     bool _led_num_lock = false;
     bool _led_caps_lock = false;
     int _scan_code_set = 2;
-    std::array<bool, scancodes::KEY_COUNT> _key_make_only{};
-    void set_all_keys_make_only(bool makeOnly);
-    void set_specific_key_make_only(scancodes::Key key, bool makeOnly);
-    bool is_key_make_only(scancodes::Key key) const;
-    void configure_specific_key(uint8_t scan_code, bool makeOnly);
+    std::array<KeyBehavior, scancodes::KEY_COUNT> _key_behaviors{};
+    void apply_behavior_to_all(const KeyBehavior &behavior);
+    void set_key_behavior(scancodes::Key key, const KeyBehavior &behavior);
+    void configure_specific_key(uint8_t scan_code, const KeyBehavior &behavior);
+    const KeyBehavior &behavior_for_key(scancodes::Key key) const;
+    bool allows_typematic_for_key(scancodes::Key key) const;
     _leds_callback leds_callback = nullptr;
   };
 
