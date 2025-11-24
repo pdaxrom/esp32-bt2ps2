@@ -1304,11 +1304,6 @@ void BTKeyboard::hidh_callback(void *handler_args, esp_event_base_t base, int32_
         if (find_output_report(param->open.dev, map_index, report_id))
           led_device_map[bda_to_string(bda)] = { param->open.dev, map_index, report_id };
         LED_DEVICE_MAP_UNLOCK();
-
-        if (report_maps != nullptr)
-        {
-          free(report_maps);
-        }
       }
       else
       {

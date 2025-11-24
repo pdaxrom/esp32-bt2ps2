@@ -52,6 +52,91 @@ esp32_ps2dev::PS2Keyboard keyboard(KB_CLK_PIN, KB_DATA_PIN);
 // BTKeyboard section
 BTKeyboard bt_keyboard;
 
+struct ModifierAction
+{
+    uint8_t mask;
+    esp32_ps2dev::scancodes::Key key;
+    const char *label;
+};
+
+static const ModifierAction kModifierActions[] = {
+    {0x02, esp32_ps2dev::scancodes::Key::K_LSHIFT, "LSHIFT"},
+    {0x01, esp32_ps2dev::scancodes::Key::K_LCTRL, "LCTRL"},
+    {0x08, esp32_ps2dev::scancodes::Key::K_LSUPER, "LMETA"},
+    {0x04, esp32_ps2dev::scancodes::Key::K_LALT, "LALT"},
+    {0x20, esp32_ps2dev::scancodes::Key::K_RSHIFT, "RSHIFT"},
+    {0x10, esp32_ps2dev::scancodes::Key::K_RCTRL, "RCTRL"},
+    {0x80, esp32_ps2dev::scancodes::Key::K_RSUPER, "RMETA"},
+    {0x40, esp32_ps2dev::scancodes::Key::K_RALT, "RALT"},
+};
+
+template <typename KeyType, typename ReleaseFn>
+void handle_key_releases(const KeyType *previous, const KeyType *current, ReleaseFn releaseFn)
+{
+    bool found = false;
+    for (int i = 0; i < BTKeyboard::MAX_KEY_COUNT && previous[i]; i++)
+    {
+        for (int j = 0; j < BTKeyboard::MAX_KEY_COUNT && current[j]; j++)
+        {
+            if (previous[i] == current[j])
+            {
+                found = true;
+                break;
+            }
+        }
+        if (!found)
+        {
+            releaseFn(previous[i]);
+        }
+        found = false;
+    }
+}
+
+template <typename KeyType, typename PressFn>
+void handle_key_presses(const KeyType *current, const KeyType *previous, PressFn pressFn)
+{
+    bool found = false;
+    for (int i = 0; i < BTKeyboard::MAX_KEY_COUNT && current[i]; i++)
+    {
+        for (int j = 0; j < BTKeyboard::MAX_KEY_COUNT && previous[j]; j++)
+        {
+            if (current[i] == previous[j])
+            {
+                found = true;
+                break;
+            }
+        }
+        if (!found)
+        {
+            pressFn(current[i]);
+        }
+        found = false;
+    }
+}
+
+void handle_modifier_changes(uint8_t newModifiers, uint8_t oldModifiers)
+{
+    for (const auto &action : kModifierActions)
+    {
+        bool now = newModifiers & action.mask;
+        bool before = oldModifiers & action.mask;
+        if (now == before)
+        {
+            continue;
+        }
+
+        ESP_LOGD(TAG, "%s key: %s", now ? "Down" : "Up", action.label);
+        if (now)
+        {
+            keyboard.keydown(action.key);
+        }
+        else
+        {
+            keyboard.keyup(action.key);
+        }
+    }
+}
+
 int NumDigits(int x) // Returns number of digits in keyboard code
 {
     x = abs(x);
@@ -274,7 +359,6 @@ extern "C"
         TaskHandle_t mouse_task_handle;                  // mouse uses it's own task. Mouse is important
         TaskHandle_t ble_connection_daemon_handle;       // the BLE daemon constantly scans for BLE previously bonded devices
 
-        bool found = false;                 // just an innocent flasg I mean flag
         int typematicLeft = typematicDelay; // timekeeping
 
         info.modifier = infoBuf.modifier = (BTKeyboard::KeyModifier)0;
@@ -294,197 +378,25 @@ extern "C"
         {
             if (bt_keyboard.wait_for_low_event(info, repeat_period))
             {
-                // Handle modifier keys
                 if (info.modifier != infoBuf.modifier)
                 {
-
-                    // MODIFIER SECTION
-
-                    // Are you a communist?
-                    if (((uint8_t)info.modifier & 0x0f) != ((uint8_t)infoBuf.modifier & 0x0f))
-                    {
-
-                        // LSHIFT
-                        if (((uint8_t)info.modifier & 0x02) != ((uint8_t)infoBuf.modifier & 0x02))
-                        {
-                            if ((uint8_t)info.modifier & 0x02)
-                            {
-                                ESP_LOGD(TAG, "Down key: LSHIFT");
-                                keyboard.keydown(esp32_ps2dev::scancodes::Key::K_LSHIFT);
-                            }
-                            else
-                            {
-                                ESP_LOGD(TAG, "Up key: LSHIFT");
-                                keyboard.keyup(esp32_ps2dev::scancodes::Key::K_LSHIFT);
-                            }
-                        }
-
-                        // LCTRL
-                        if (((uint8_t)info.modifier & 0x01) != ((uint8_t)infoBuf.modifier & 0x01))
-                        {
-                            if ((uint8_t)info.modifier & 0x01)
-                            {
-                                ESP_LOGD(TAG, "Down key: LCTRL");
-                                keyboard.keydown(esp32_ps2dev::scancodes::Key::K_LCTRL);
-                            }
-                            else
-                            {
-                                ESP_LOGD(TAG, "Up key: LCTRL");
-                                keyboard.keyup(esp32_ps2dev::scancodes::Key::K_LCTRL);
-                            }
-                        }
-
-                        // LMETA
-                        if (((uint8_t)info.modifier & 0x08) != ((uint8_t)infoBuf.modifier & 0x08))
-                        {
-                            if ((uint8_t)info.modifier & 0x08)
-                            {
-                                ESP_LOGD(TAG, "Down key: LMETA");
-                                keyboard.keydown(esp32_ps2dev::scancodes::Key::K_LSUPER);
-                            }
-                            else
-                            {
-                                ESP_LOGD(TAG, "Up key: LMETA");
-                                keyboard.keyup(esp32_ps2dev::scancodes::Key::K_LSUPER);
-                            }
-                        }
-
-                        // LALT
-                        if (((uint8_t)info.modifier & 0x04) != ((uint8_t)infoBuf.modifier & 0x04))
-                        {
-                            if ((uint8_t)info.modifier & 0x04)
-                            {
-                                ESP_LOGD(TAG, "Down key: LALT");
-                                keyboard.keydown(esp32_ps2dev::scancodes::Key::K_LALT);
-                            }
-                            else
-                            {
-                                ESP_LOGD(TAG, "Up key: LALT");
-                                keyboard.keyup(esp32_ps2dev::scancodes::Key::K_LALT);
-                            }
-                        }
-                    }
-
-                    // Are you a capitalist?
-                    if (((uint8_t)info.modifier & 0xf0) != ((uint8_t)infoBuf.modifier & 0xf0))
-                    {
-
-                        // RSHIFT
-                        if (((uint8_t)info.modifier & 0x20) != ((uint8_t)infoBuf.modifier & 0x20))
-                        {
-                            if ((uint8_t)info.modifier & 0x20)
-                            {
-                                ESP_LOGD(TAG, "Down key: RSHIFT");
-                                keyboard.keydown(esp32_ps2dev::scancodes::Key::K_RSHIFT);
-                            }
-                            else
-                            {
-                                ESP_LOGD(TAG, "Up key: RSHIFT");
-                                keyboard.keyup(esp32_ps2dev::scancodes::Key::K_RSHIFT);
-                            }
-                        }
-
-                        // RCTRL
-                        if (((uint8_t)info.modifier & 0x10) != ((uint8_t)infoBuf.modifier & 0x10))
-                        {
-                            if ((uint8_t)info.modifier & 0x10)
-                            {
-                                ESP_LOGD(TAG, "Down key: RCTRL");
-                                keyboard.keydown(esp32_ps2dev::scancodes::Key::K_RCTRL);
-                            }
-                            else
-                            {
-                                ESP_LOGD(TAG, "Up key: RCTRL");
-                                keyboard.keyup(esp32_ps2dev::scancodes::Key::K_RCTRL);
-                            }
-                        }
-
-                        // RMETA
-                        if (((uint8_t)info.modifier & 0x80) != ((uint8_t)infoBuf.modifier & 0x80))
-                        {
-                            if ((uint8_t)info.modifier & 0x80)
-                            {
-                                ESP_LOGD(TAG, "Down key: RMETA");
-                                keyboard.keydown(esp32_ps2dev::scancodes::Key::K_RSUPER);
-                            }
-                            else
-                            {
-                                ESP_LOGD(TAG, "Up key: RMETA");
-                                keyboard.keyup(esp32_ps2dev::scancodes::Key::K_RSUPER);
-                            }
-                        }
-
-                        // RALT
-                        if (((uint8_t)info.modifier & 0x40) != ((uint8_t)infoBuf.modifier & 0x40))
-                        {
-                            if ((uint8_t)info.modifier & 0x40)
-                            {
-                                ESP_LOGD(TAG, "Down key: RALT");
-                                keyboard.keydown(esp32_ps2dev::scancodes::Key::K_RALT);
-                            }
-                            else
-                            {
-                                ESP_LOGD(TAG, "Up key: RALT");
-                                keyboard.keyup(esp32_ps2dev::scancodes::Key::K_RALT);
-                            }
-                        }
-                    }
+                    handle_modifier_changes((uint8_t)info.modifier, (uint8_t)infoBuf.modifier);
                 }
 
-                // KEY SECTION (always tested)
-                // release the keys that have been just released
-                for (int i = 0; i < BTKeyboard::MAX_KEY_COUNT; i++)
-                {
-                    if (!infoBuf.keys[i])
-                    { // Detect END FLAG
-                        break;
-                    }
-                    for (int j = 0; (info.keys[j]) && (j < BTKeyboard::MAX_KEY_COUNT); j++)
-                    {
-                        if (infoBuf.keys[i] == info.keys[j])
-                        {
-                            found = true;
-                            break;
-                        }
-                    }
-                    if (!found)
-                    {
-                        ESP_LOGD(TAG, "Up key: %x", infoBuf.keys[i]);
-                        keyboard.keyHid_send(infoBuf.keys[i], false);
-                        gpio_set_level(GPIO_NUM_2, 1);
-                    }
-                    else
-                    {
-                        found = false;
-                    }
-                }
+                auto release_key = [&](uint8_t key) {
+                    ESP_LOGD(TAG, "Up key: %x", key);
+                    keyboard.keyHid_send(key, false);
+                    gpio_set_level(GPIO_NUM_2, 1);
+                };
 
-                // press the keys that have been just pressed
-                for (int i = 0; i < BTKeyboard::MAX_KEY_COUNT; i++)
-                {
-                    if (!info.keys[i])
-                    { // Detect END FLAG
-                        break;
-                    }
-                    for (int j = 0; (infoBuf.keys[j]) && (j < BTKeyboard::MAX_KEY_COUNT); j++)
-                    {
-                        if (info.keys[i] == infoBuf.keys[j])
-                        {
-                            found = true;
-                            break;
-                        }
-                    }
-                    if (!found)
-                    {
-                        ESP_LOGD(TAG, "Down key: %x", info.keys[i]);
-                        keyboard.keyHid_send(info.keys[i], true);
-                        gpio_set_level(GPIO_NUM_2, 0);
-                    }
-                    else
-                    {
-                        found = false;
-                    }
-                }
+                auto press_key = [&](uint8_t key) {
+                    ESP_LOGD(TAG, "Down key: %x", key);
+                    keyboard.keyHid_send(key, true);
+                    gpio_set_level(GPIO_NUM_2, 0);
+                };
+
+                handle_key_releases<uint8_t>(infoBuf.keys, info.keys, release_key);
+                handle_key_presses<uint8_t>(info.keys, infoBuf.keys, press_key);
 
                 infoBuf = info;                 // Now all the keys are handled, we save the state
                 typematicLeft = typematicDelay; // Typematic timer reset
@@ -545,52 +457,20 @@ extern "C"
 
             if (bt_keyboard.wait_for_low_event_CCONTROL(infoCCONTROL, 0)) // return immediately if queue empty
             {
-                // KEY SECTION (always tested)
-                // release the keys that have been just released
-                for (int i = 0; i < BTKeyboard::MAX_KEY_COUNT; i++)
-                {
-                    if (!infoBufCCONTROL.keys[i]) // Detect END FLAG
-                        break;
-                    for (int j = 0; (infoCCONTROL.keys[j]) && (j < BTKeyboard::MAX_KEY_COUNT); j++)
-                    {
-                        if (infoBufCCONTROL.keys[i] == infoCCONTROL.keys[j])
-                        {
-                            found = true;
-                            break;
-                        }
-                    }
-                    if (!found)
-                    {
-                        ESP_LOGD(TAG, "Up CCONTROL key: %x", infoBufCCONTROL.keys[i]);
-                        keyboard.keyHid_send_CCONTROL(infoBufCCONTROL.keys[i], false);
-                        gpio_set_level(GPIO_NUM_2, 1);
-                    }
-                    else
-                        found = false;
-                }
+                auto release_ccontrol = [&](uint16_t key) {
+                    ESP_LOGD(TAG, "Up CCONTROL key: %x", key);
+                    keyboard.keyHid_send_CCONTROL(key, false);
+                    gpio_set_level(GPIO_NUM_2, 1);
+                };
 
-                // press the keys that have been just pressed
-                for (int i = 0; i < BTKeyboard::MAX_KEY_COUNT; i++)
-                {
-                    if (!infoCCONTROL.keys[i]) // Detect END FLAG
-                        break;
-                    for (int j = 0; (infoBufCCONTROL.keys[j]) && (j < BTKeyboard::MAX_KEY_COUNT); j++)
-                    {
-                        if (infoCCONTROL.keys[i] == infoBufCCONTROL.keys[j])
-                        {
-                            found = true;
-                            break;
-                        }
-                    }
-                    if (!found)
-                    {
-                        ESP_LOGD(TAG, "Down CCONTROL key: %x", infoCCONTROL.keys[i]);
-                        keyboard.keyHid_send_CCONTROL(infoCCONTROL.keys[i], true);
-                        gpio_set_level(GPIO_NUM_2, 0);
-                    }
-                    else
-                        found = false;
-                }
+                auto press_ccontrol = [&](uint16_t key) {
+                    ESP_LOGD(TAG, "Down CCONTROL key: %x", key);
+                    keyboard.keyHid_send_CCONTROL(key, true);
+                    gpio_set_level(GPIO_NUM_2, 0);
+                };
+
+                handle_key_releases<uint16_t>(infoBufCCONTROL.keys, infoCCONTROL.keys, release_ccontrol);
+                handle_key_presses<uint16_t>(infoCCONTROL.keys, infoBufCCONTROL.keys, press_ccontrol);
 
                 infoBufCCONTROL = infoCCONTROL; // Now all the keys are handled, we save the state
             }
@@ -605,66 +485,66 @@ void mouse_task(void *arg)
 
     while (true)
     {
-        if (bt_keyboard.wait_for_low_event_MOUSE(infoMouse)) // return immediately if queue empty
+        if (!bt_keyboard.wait_for_low_event_MOUSE(infoMouse, portMAX_DELAY))
         {
+            continue;
+        }
+
+        mouse.move(infoMouse.mouse_x, infoMouse.mouse_y, infoMouse.mouse_w);
+
+        // KEY SECTION (always tested)
+        if ((infoMouse.mouse_buttons) != (infoMouseBuf.mouse_buttons))
+        {
+            if ((infoMouse.mouse_buttons & 0b1) != (infoMouseBuf.mouse_buttons & 0b1)) // change on first button?
             {
-                mouse.move(infoMouse.mouse_x, infoMouse.mouse_y, infoMouse.mouse_w);
-
-                // KEY SECTION (always tested)
-                if ((infoMouse.mouse_buttons) != (infoMouseBuf.mouse_buttons))
+                if (infoMouse.mouse_buttons & 0b1)
                 {
-                    if ((infoMouse.mouse_buttons & 0b1) != (infoMouseBuf.mouse_buttons & 0b1)) // change on first button?
-                    {
-                        if (infoMouse.mouse_buttons & 0b1)
-                        {
-                            ESP_LOGD(TAG, "Down Mouse button 1");
-                            mouse.press(esp32_ps2dev::PS2Mouse::Button::LEFT);
-                            gpio_set_level(GPIO_NUM_2, 0);
-                        }
-                        else
-                        {
-                            ESP_LOGD(TAG, "Up Mouse button 1");
-                            mouse.release(esp32_ps2dev::PS2Mouse::Button::LEFT);
-                            gpio_set_level(GPIO_NUM_2, 1);
-                        }
-                    }
-
-                    if ((infoMouse.mouse_buttons & 0b10) != (infoMouseBuf.mouse_buttons & 0b10)) // change on second button?
-                    {
-                        if (infoMouse.mouse_buttons & 0b10)
-                        {
-                            ESP_LOGD(TAG, "Down Mouse button 2");
-                            mouse.press(esp32_ps2dev::PS2Mouse::Button::RIGHT);
-                            gpio_set_level(GPIO_NUM_2, 0);
-                        }
-                        else
-                        {
-                            ESP_LOGD(TAG, "Up Mouse button 2");
-                            mouse.release(esp32_ps2dev::PS2Mouse::Button::RIGHT);
-                            gpio_set_level(GPIO_NUM_2, 1);
-                        }
-                    }
-
-                    if ((infoMouse.mouse_buttons & 0b100) != (infoMouseBuf.mouse_buttons & 0b100)) // change on third button?
-                    {
-                        if (infoMouse.mouse_buttons & 0b100)
-                        {
-                            ESP_LOGD(TAG, "Down Mouse button 3");
-                            mouse.press(esp32_ps2dev::PS2Mouse::Button::MIDDLE);
-                            gpio_set_level(GPIO_NUM_2, 0);
-                        }
-                        else
-                        {
-                            ESP_LOGD(TAG, "Up Mouse button 3");
-                            mouse.release(esp32_ps2dev::PS2Mouse::Button::MIDDLE);
-                            gpio_set_level(GPIO_NUM_2, 1);
-                        }
-                    }
+                    ESP_LOGD(TAG, "Down Mouse button 1");
+                    mouse.press(esp32_ps2dev::PS2Mouse::Button::LEFT);
+                    gpio_set_level(GPIO_NUM_2, 0);
+                }
+                else
+                {
+                    ESP_LOGD(TAG, "Up Mouse button 1");
+                    mouse.release(esp32_ps2dev::PS2Mouse::Button::LEFT);
+                    gpio_set_level(GPIO_NUM_2, 1);
                 }
             }
 
-            infoMouseBuf = infoMouse; // Now all the keys are handled, we save the state
+            if ((infoMouse.mouse_buttons & 0b10) != (infoMouseBuf.mouse_buttons & 0b10)) // change on second button?
+            {
+                if (infoMouse.mouse_buttons & 0b10)
+                {
+                    ESP_LOGD(TAG, "Down Mouse button 2");
+                    mouse.press(esp32_ps2dev::PS2Mouse::Button::RIGHT);
+                    gpio_set_level(GPIO_NUM_2, 0);
+                }
+                else
+                {
+                    ESP_LOGD(TAG, "Up Mouse button 2");
+                    mouse.release(esp32_ps2dev::PS2Mouse::Button::RIGHT);
+                    gpio_set_level(GPIO_NUM_2, 1);
+                }
+            }
+
+            if ((infoMouse.mouse_buttons & 0b100) != (infoMouseBuf.mouse_buttons & 0b100)) // change on third button?
+            {
+                if (infoMouse.mouse_buttons & 0b100)
+                {
+                    ESP_LOGD(TAG, "Down Mouse button 3");
+                    mouse.press(esp32_ps2dev::PS2Mouse::Button::MIDDLE);
+                    gpio_set_level(GPIO_NUM_2, 0);
+                }
+                else
+                {
+                    ESP_LOGD(TAG, "Up Mouse button 3");
+                    mouse.release(esp32_ps2dev::PS2Mouse::Button::MIDDLE);
+                    gpio_set_level(GPIO_NUM_2, 1);
+                }
+            }
         }
+
+        infoMouseBuf = infoMouse; // Now all the keys are handled, we save the state
     }
 }
 
