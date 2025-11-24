@@ -316,18 +316,6 @@ namespace esp32_ps2dev
   {
     PS2dev::begin(DEFAULT_TASK_CORE_MOUSE);
 
-    auto ret = nvs_flash_init();
-    if (ret != ESP_OK)
-    {
-      ESP_LOGE(TAG, "PS2Mouse::begin: nvs_flash_init failed");
-    }
-    const auto nvs_ns = std::string("ps2dev") + std::to_string(_ps2clk) + std::to_string(_ps2data);
-    ret = nvs_open(nvs_ns.c_str(), NVS_READWRITE, &_nvs_handle);
-    if (ret != ESP_OK)
-    {
-      ESP_LOGE(TAG, "PS2Mouse::begin: nvs_open failed");
-    }
-
     xSemaphoreTake(_mutex_bus, portMAX_DELAY);
     delay(200);
     write(0xAA);
