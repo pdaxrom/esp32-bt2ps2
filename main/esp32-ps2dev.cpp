@@ -6,6 +6,7 @@
 
 // Unomment following line to enable debug messages on the PS2DEV module
 //#define _ESP32_PS2DEV_DEBUG_
+#define TAG __FILE__
 
 namespace esp32_ps2dev
 {
@@ -359,14 +360,14 @@ namespace esp32_ps2dev
       {
       case Command::SET_WRAP_MODE: // set wrap mode
 #if defined(_ESP32_PS2DEV_DEBUG_)
-        printf("PS2Mouse::reply_to_host: (WRAP_MODE) Set wrap mode command received");
+        ESP_LOGI(TAG, "PS2Mouse::reply_to_host: (WRAP_MODE) Set wrap mode command received");
 #endif
         ack();
         reset_counter();
         break;
       case Command::RESET_WRAP_MODE: // reset wrap mode
 #if defined(_ESP32_PS2DEV_DEBUG_)
-        printf("PS2Mouse::reply_to_host: (WRAP_MODE) Reset wrap mode command received");
+        ESP_LOGI(TAG, "PS2Mouse::reply_to_host: (WRAP_MODE) Reset wrap mode command received");
 #endif
         ack();
         reset_counter();
@@ -383,7 +384,7 @@ namespace esp32_ps2dev
     {
     case Command::RESET: // reset
 #if defined(_ESP32_PS2DEV_DEBUG_)
-      printf("PS2Mouse::reply_to_host: Reset command received");
+      ESP_LOGI(TAG, "PS2Mouse::reply_to_host: Reset command received");
 #endif
       ack();
       // the while loop lets us wait for the host to be ready
@@ -404,13 +405,13 @@ namespace esp32_ps2dev
       break;
     case Command::RESEND: // resend
 #if defined(_ESP32_PS2DEV_DEBUG_)
-      printf("PS2Mouse::reply_to_host: Resend command received");
+      ESP_LOGI(TAG, "PS2Mouse::reply_to_host: Resend command received");
 #endif
       ack();
       break;
     case Command::SET_DEFAULTS: // set defaults
 #if defined(_ESP32_PS2DEV_DEBUG_)
-      printf("PS2Mouse::reply_to_host: Set defaults command received");
+      ESP_LOGI(TAG, "PS2Mouse::reply_to_host: Set defaults command received");
 #endif
       // enter stream mode
       ack();
@@ -424,7 +425,7 @@ namespace esp32_ps2dev
       break;
     case Command::DISABLE_DATA_REPORTING: // disable data reporting
 #if defined(_ESP32_PS2DEV_DEBUG_)
-      printf("PS2Mouse::reply_to_host: Disable data reporting command received");
+      ESP_LOGI(TAG, "PS2Mouse::reply_to_host: Disable data reporting command received");
 #endif
       ack();
       _data_reporting_enabled = false;
@@ -433,7 +434,7 @@ namespace esp32_ps2dev
       break;
     case Command::ENABLE_DATA_REPORTING: // enable data reporting
 #if defined(_ESP32_PS2DEV_DEBUG_)
-      printf("PS2Mouse::reply_to_host: Enable data reporting command received");
+      ESP_LOGI(TAG, "PS2Mouse::reply_to_host: Enable data reporting command received");
 #endif
       ack();
       _data_reporting_enabled = true;
@@ -458,7 +459,7 @@ namespace esp32_ps2dev
           _last_sample_rate[1] = _last_sample_rate[2];
           _last_sample_rate[2] = val;
 #if defined(_ESP32_PS2DEV_DEBUG_)
-          printf("Set sample rate command received: %x", val);
+          ESP_LOGI(TAG, "Set sample rate command received: %x", val);
           //_ESP32_PS2DEV_DEBUG_.println(val);
 #endif
           ack();
@@ -474,14 +475,14 @@ namespace esp32_ps2dev
       break;
     case Command::GET_DEVICE_ID: // get device id
 #if defined(_ESP32_PS2DEV_DEBUG_)
-      printf("PS2Mouse::reply_to_host: Get device id command received");
+      ESP_LOGI(TAG, "PS2Mouse::reply_to_host: Get device id command received");
 #endif
       ack();
       if (_last_sample_rate[0] == 200 && _last_sample_rate[1] == 100 && _last_sample_rate[2] == 80)
       {
         write(0x03); // Intellimouse with wheel
 #if defined(_ESP32_PS2DEV_DEBUG_)
-        printf("PS2Mouse::reply_to_host: Act as Intellimouse with wheel.");
+        ESP_LOGI(TAG, "PS2Mouse::reply_to_host: Act as Intellimouse with wheel.");
 #endif
         _has_wheel = true;
         _save_internal_state_to_nvs();
@@ -490,7 +491,7 @@ namespace esp32_ps2dev
       {
         write(0x04); // Intellimouse with 4th and 5th buttons
 #if defined(_ESP32_PS2DEV_DEBUG_)
-        printf("PS2Mouse::reply_to_host: Act as Intellimouse with 4th and 5th buttons.");
+        ESP_LOGI(TAG, "PS2Mouse::reply_to_host: Act as Intellimouse with 4th and 5th buttons.");
 #endif
         _has_4th_and_5th_buttons = true;
         _save_internal_state_to_nvs();
@@ -499,7 +500,7 @@ namespace esp32_ps2dev
       {
         write(0x00); // Standard PS/2 mouse
 #if defined(_ESP32_PS2DEV_DEBUG_)
-        printf("PS2Mouse::reply_to_host: Act as standard PS/2 mouse.");
+        ESP_LOGI(TAG, "PS2Mouse::reply_to_host: Act as standard PS/2 mouse.");
 #endif
         _has_wheel = false;
         _has_4th_and_5th_buttons = false;
@@ -509,7 +510,7 @@ namespace esp32_ps2dev
       break;
     case Command::SET_REMOTE_MODE: // set remote mode
 #if defined(_ESP32_PS2DEV_DEBUG_)
-      printf("PS2Mouse::reply_to_host: Set remote mode command received");
+      ESP_LOGI(TAG, "PS2Mouse::reply_to_host: Set remote mode command received");
 #endif
       // ack();
       delayMicroseconds(BYTE_INTERVAL_MICROS);
@@ -522,7 +523,7 @@ namespace esp32_ps2dev
       break;
     case Command::SET_WRAP_MODE: // set wrap mode
 #if defined(_ESP32_PS2DEV_DEBUG_)
-      printf("PS2Mouse::reply_to_host: Set wrap mode command received");
+      ESP_LOGI(TAG, "PS2Mouse::reply_to_host: Set wrap mode command received");
 #endif
       ack();
       reset_counter();
@@ -532,14 +533,14 @@ namespace esp32_ps2dev
       break;
     case Command::RESET_WRAP_MODE: // reset wrap mode
 #if defined(_ESP32_PS2DEV_DEBUG_)
-      printf("PS2Mouse::reply_to_host: Reset wrap mode command received");
+      ESP_LOGI(TAG, "PS2Mouse::reply_to_host: Reset wrap mode command received");
 #endif
       ack();
       reset_counter();
       break;
     case Command::READ_DATA: // read data
 #if defined(_ESP32_PS2DEV_DEBUG_)
-                             // printf("PS2Mouse::reply_to_host: Read data command received"); //////////////////////////////////////////////////////////////
+                             // ESP_LOGI(TAG, "PS2Mouse::reply_to_host: Read data command received"); //////////////////////////////////////////////////////////////
 #endif
       ack();
       _report();
@@ -547,14 +548,14 @@ namespace esp32_ps2dev
       break;
     case Command::SET_STREAM_MODE: // set stream mode
 #if defined(_ESP32_PS2DEV_DEBUG_)
-      printf("PS2Mouse::reply_to_host: Set stream mode command received");
+      ESP_LOGI(TAG, "PS2Mouse::reply_to_host: Set stream mode command received");
 #endif
       ack();
       reset_counter();
       break;
     case Command::STATUS_REQUEST: // status request
 #if defined(_ESP32_PS2DEV_DEBUG_)
-      printf("PS2Mouse::reply_to_host: Status request command received");
+      ESP_LOGI(TAG, "PS2Mouse::reply_to_host: Status request command received");
 #endif
       ack();
       _send_status();
@@ -565,7 +566,7 @@ namespace esp32_ps2dev
       {
         _resolution = (ResolutionCode)val;
 #if defined(_ESP32_PS2DEV_DEBUG_)
-        printf("PS2Mouse::reply_to_host: Set resolution command received: %x", val);
+        ESP_LOGI(TAG, "PS2Mouse::reply_to_host: Set resolution command received: %x", val);
         //_ESP32_PS2DEV_DEBUG_.println(val, HEX);
 #endif
         ack();
@@ -575,7 +576,7 @@ namespace esp32_ps2dev
       break;
     case Command::SET_SCALING_2_1: // set scaling 2:1
 #if defined(_ESP32_PS2DEV_DEBUG_)
-      printf("PS2Mouse::reply_to_host: Set scaling 2:1 command received");
+      ESP_LOGI(TAG, "PS2Mouse::reply_to_host: Set scaling 2:1 command received");
 #endif
       ack();
       _scale = Scale::TWO_ONE;
@@ -583,7 +584,7 @@ namespace esp32_ps2dev
       break;
     case Command::SET_SCALING_1_1: // set scaling 1:1
 #if defined(_ESP32_PS2DEV_DEBUG_)
-      printf("PS2Mouse::reply_to_host: Set scaling 1:1 command received");
+      ESP_LOGI(TAG, "PS2Mouse::reply_to_host: Set scaling 1:1 command received");
 #endif
       ack();
       _scale = Scale::ONE_ONE;
@@ -594,7 +595,7 @@ namespace esp32_ps2dev
       while ((write(0xFE) != 0))
         delay(1);
 #if defined(_ESP32_PS2DEV_DEBUG_)
-      printf("PS2Mouse::reply_to_host: Unknown command receivedASD: %x", host_cmd);
+      ESP_LOGI(TAG, "PS2Mouse::reply_to_host: Unknown command received: %x", host_cmd);
       //_ESP32_PS2DEV_DEBUG_.println(host_cmd, HEX);
 #endif
       break;
@@ -789,7 +790,7 @@ namespace esp32_ps2dev
     {
     case Command::RESET: // reset
 #if defined(_ESP32_PS2DEV_DEBUG_)
-      printf("PS2Keyboard::reply_to_host: Reset command received");
+      ESP_LOGI(TAG, "PS2Keyboard::reply_to_host: Reset command received");
 #endif // _ESP32_PS2DEV_DEBUG_
        // the while loop lets us wait for the host to be ready
       _data_reporting_enabled = false;
@@ -802,34 +803,34 @@ namespace esp32_ps2dev
       break;
     case Command::RESEND: // resend
 #if defined(_ESP32_PS2DEV_DEBUG_)
-      printf("PS2Keyboard::reply_to_host: Resend command received");
+      ESP_LOGI(TAG, "PS2Keyboard::reply_to_host: Resend command received");
 #endif // _ESP32_PS2DEV_DEBUG_
       ack();
       break;
     case Command::SET_DEFAULTS: // set defaults
 #if defined(_ESP32_PS2DEV_DEBUG_)
-      printf("PS2Keyboard::reply_to_host: Set defaults command received");
+      ESP_LOGI(TAG, "PS2Keyboard::reply_to_host: Set defaults command received");
 #endif // _ESP32_PS2DEV_DEBUG_
        // enter stream mode
       ack();
       break;
     case Command::DISABLE_DATA_REPORTING: // disable data reporting
 #if defined(_ESP32_PS2DEV_DEBUG_)
-      printf("PS2Keyboard::reply_to_host: Disable data reporting command received");
+      ESP_LOGI(TAG, "PS2Keyboard::reply_to_host: Disable data reporting command received");
 #endif // _ESP32_PS2DEV_DEBUG_
       _data_reporting_enabled = false;
       ack();
       break;
     case Command::ENABLE_DATA_REPORTING: // enable data reporting
 #if defined(_ESP32_PS2DEV_DEBUG_)
-      printf("PS2Keyboard::reply_to_host: Enable data reporting command received");
+      ESP_LOGI(TAG, "PS2Keyboard::reply_to_host: Enable data reporting command received");
 #endif // _ESP32_PS2DEV_DEBUG_
       _data_reporting_enabled = true;
       ack();
       break;
     case Command::SET_TYPEMATIC_RATE: // set typematic rate
 #if defined(_ESP32_PS2DEV_DEBUG_)
-      printf("PS2Keyboard::reply_to_host: Set typematic rate command received");
+      ESP_LOGI(TAG, "PS2Keyboard::reply_to_host: Set typematic rate command received");
 #endif // _ESP32_PS2DEV_DEBUG_
       ack();
       if (!read(&val))
@@ -837,7 +838,7 @@ namespace esp32_ps2dev
       break;
     case Command::GET_DEVICE_ID: // get device id
 #if defined(_ESP32_PS2DEV_DEBUG_)
-      printf("PS2Keyboard::reply_to_host: Get device id command received");
+      ESP_LOGI(TAG, "PS2Keyboard::reply_to_host: Get device id command received");
 #endif // _ESP32_PS2DEV_DEBUG_
       ack();
       while (write(0xAB) != 0)
@@ -847,7 +848,7 @@ namespace esp32_ps2dev
       break;
     case Command::SET_SCAN_CODE_SET: // set scan code set
 #if defined(_ESP32_PS2DEV_DEBUG_)
-      printf("PS2Keyboard::reply_to_host: Set scan code set command received");
+      ESP_LOGI(TAG, "PS2Keyboard::reply_to_host: Set scan code set command received");
 #endif // _ESP32_PS2DEV_DEBUG_
       ack();
       if (!read(&val)) {
@@ -865,7 +866,7 @@ namespace esp32_ps2dev
       break;
     case Command::ECHO: // echo
 #if defined(_ESP32_PS2DEV_DEBUG_)
-      printf("PS2Keyboard::reply_to_host: Echo command received");
+      ESP_LOGI(TAG, "PS2Keyboard::reply_to_host: Echo command received");
 #endif // _ESP32_PS2DEV_DEBUG_
       delayMicroseconds(BYTE_INTERVAL_MICROS);
       write(0xEE);
@@ -873,7 +874,7 @@ namespace esp32_ps2dev
       break;
     case Command::SET_RESET_LEDS: // set/reset LEDs
 #if defined(_ESP32_PS2DEV_DEBUG_)
-      printf("PS2Keyboard::reply_to_host: Set/reset LEDs command received");
+      ESP_LOGI(TAG, "PS2Keyboard::reply_to_host: Set/reset LEDs command received");
 #endif // _ESP32_PS2DEV_DEBUG_
       delayMicroseconds(BYTE_INTERVAL_MICROS);
       while (write(0xFA) != 0)
@@ -894,35 +895,35 @@ namespace esp32_ps2dev
       break;
     case Command::SET_ALL_KEYS_TO_TYPEMATIC_AUTOREPEAT_ONLY: // Set all keys to typematic/autorepeat only (scancode set 3 only)
 #if defined(_ESP32_PS2DEV_DEBUG_)
-      printf("PS2Keyboard::reply_to_host: Set all keys to typematic/autorepeat only");
+      ESP_LOGI(TAG, "PS2Keyboard::reply_to_host: Set all keys to typematic/autorepeat only");
 #endif // _ESP32_PS2DEV_DEBUG_
       ack();
       _all_keys_to_make_only = true;
       break;
     case Command::SET_ALL_KEYS_TO_MAKE_RELEASE: // Set all keys to make/release (scancode set 3 only)
 #if defined(_ESP32_PS2DEV_DEBUG_)
-      printf("PS2Keyboard::reply_to_host: Set all keys to make/release");
+      ESP_LOGI(TAG, "PS2Keyboard::reply_to_host: Set all keys to make/release");
 #endif // _ESP32_PS2DEV_DEBUG_
       ack();
       _all_keys_to_make_only = false;
       break;
     case Command::SET_ALL_KEYS_TO_MAKE_ONLY: // Set all keys to make only (scancode set 3 only)
 #if defined(_ESP32_PS2DEV_DEBUG_)
-      printf("PS2Keyboard::reply_to_host: Set all keys to make only");
+      ESP_LOGI(TAG, "PS2Keyboard::reply_to_host: Set all keys to make only");
 #endif // _ESP32_PS2DEV_DEBUG_
       ack();
       _all_keys_to_make_only = true;
       break;
     case Command::SET_ALL_KEYS_TO_TYPEMATIC_AUTOREPEAT_MAKE_RELEASE: // Set all keys to typematic/autorepeat/make/release (scancode set 3 only)
 #if defined(_ESP32_PS2DEV_DEBUG_)
-      printf("PS2Keyboard::reply_to_host: Set all keys to typematic/autorepeat/make/release");
+      ESP_LOGI(TAG, "PS2Keyboard::reply_to_host: Set all keys to typematic/autorepeat/make/release");
 #endif // _ESP32_PS2DEV_DEBUG_
       ack();
       _all_keys_to_make_only = false;
       break;
     case Command::SET_SPECIFIC_KEY_TO_TYPEMATIC_AUTOREPEAT_ONLY: // Set specific key to typematic/autorepeat only (scancode set 3 only)
 #if defined(_ESP32_PS2DEV_DEBUG_)
-      printf("PS2Keyboard::reply_to_host: Set specific key to typematic/autorepeat only");
+      ESP_LOGI(TAG, "PS2Keyboard::reply_to_host: Set specific key to typematic/autorepeat only");
 #endif // _ESP32_PS2DEV_DEBUG_
       ack();
       if (!read(&val))
@@ -930,7 +931,7 @@ namespace esp32_ps2dev
       break;
     case Command::SET_SPECIFIC_KEY_TO_MAKE_RELEASE: // Set specific key to make/release (scancode set 3 only)
 #if defined(_ESP32_PS2DEV_DEBUG_)
-      printf("PS2Keyboard::reply_to_host: Set specific key to make/release");
+      ESP_LOGI(TAG, "PS2Keyboard::reply_to_host: Set specific key to make/release");
 #endif // _ESP32_PS2DEV_DEBUG_
       ack();
       if (!read(&val))
@@ -938,7 +939,7 @@ namespace esp32_ps2dev
       break;
     case Command::SET_SPECIFIC_KEY_TO_MAKE_ONLY: // Set specific key to make only (scancode set 3 only)
 #if defined(_ESP32_PS2DEV_DEBUG_)
-      printf("PS2Keyboard::reply_to_host: Set specific key to make only");
+      ESP_LOGI(TAG, "PS2Keyboard::reply_to_host: Set specific key to make only");
 #endif // _ESP32_PS2DEV_DEBUG_
       ack();
       if (!read(&val))
@@ -947,7 +948,7 @@ namespace esp32_ps2dev
     default:
       ack();
 #if defined(_ESP32_PS2DEV_DEBUG_)
-      printf("PS2Keyboard::reply_to_host: Unknown command received: %x", host_cmd);
+      ESP_LOGI(TAG, "PS2Keyboard::reply_to_host: Unknown command received: %x", host_cmd);
       //_ESP32_PS2DEV_DEBUG_.println(host_cmd, HEX);
 #endif // _ESP32_PS2DEV_DEBUG_
       break;
