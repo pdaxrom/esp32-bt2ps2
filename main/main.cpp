@@ -49,8 +49,6 @@ esp32_ps2dev::PS2Mouse mouse(MOUSE_CLK_PIN, MOUSE_DATA_PIN);
 
 esp32_ps2dev::PS2Keyboard keyboard(KB_CLK_PIN, KB_DATA_PIN);
 
-serialMouse mouse_serial;
-
 // BTKeyboard section
 BTKeyboard bt_keyboard;
 
@@ -226,7 +224,6 @@ extern "C"
         mouse.begin();
         keyboard.begin();
         keyboard.set_leds_callback(set_leds_cb);
-        mouse_serial.setup(SERIAL_MOUSE_RS232_RTS, SERIAL_MOUSE_RS232_RX);
 
         gpio_set_level(GPIO_NUM_2, 0);
 
@@ -610,11 +607,6 @@ void mouse_task(void *arg)
     {
         if (bt_keyboard.wait_for_low_event_MOUSE(infoMouse)) // return immediately if queue empty
         {
-            if (!gpio_get_level((gpio_num_t)SERIAL_MOUSE_RS232_RTS)) // serial connection auto detection, RTS should be high during serial presence 
-            {
-                mouse_serial.serialMove(infoMouse.mouse_buttons, infoMouse.mouse_x, -infoMouse.mouse_y);
-            }
-            else
             {
                 mouse.move(infoMouse.mouse_x, infoMouse.mouse_y, infoMouse.mouse_w);
 
