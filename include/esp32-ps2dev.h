@@ -133,7 +133,7 @@ namespace esp32_ps2dev
       BUTTON_5,
     };
 
-    void begin(bool restore_internal_state);
+    void begin();
     int reply_to_host(uint8_t host_cmd);
     bool has_wheel();
     bool has_4th_and_5th_buttons();

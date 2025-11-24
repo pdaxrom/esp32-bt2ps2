@@ -223,7 +223,7 @@ extern "C"
         gpio_set_direction(GPIO_NUM_2, GPIO_MODE_OUTPUT); // Set the GPIO as a push/pull output
         gpio_set_level(GPIO_NUM_2, 1);
 
-        mouse.begin(true); // true parameter indicates we want to recover previous mouse state from NVS
+        mouse.begin();
         keyboard.begin();
         keyboard.set_leds_callback(set_leds_cb);
         mouse_serial.setup(SERIAL_MOUSE_RS232_RTS, SERIAL_MOUSE_RS232_RX);

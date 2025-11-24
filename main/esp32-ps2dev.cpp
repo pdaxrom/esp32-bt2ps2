@@ -312,7 +312,7 @@ namespace esp32_ps2dev
   int PS2dev::send_packet(PS2Packet *packet) { return (xQueueSend(_queue_packet, packet, 0) == pdTRUE) ? 0 : -1; }
 
   PS2Mouse::PS2Mouse(int clk, int data) : PS2dev(clk, data) {}
-  void PS2Mouse::begin(bool restore_internal_state = 1)
+  void PS2Mouse::begin()
   {
     PS2dev::begin(DEFAULT_TASK_CORE_MOUSE);
 
@@ -328,26 +328,12 @@ namespace esp32_ps2dev
       ESP_LOGE(TAG, "PS2Mouse::begin: nvs_open failed");
     }
 
-    if (!restore_internal_state)
-    {
-      xSemaphoreTake(_mutex_bus, portMAX_DELAY);
-      delay(200);
-      write(0xAA);
-      delayMicroseconds(BYTE_INTERVAL_MICROS);
-      write(0x00);
-      xSemaphoreGive(_mutex_bus);
-    }
-    else if (ret == ESP_OK)
-    {
-      _load_internal_state_from_nvs();
-      ESP_LOGI(TAG, "Internal state for mouse loaded from NVS");
-      xSemaphoreTake(_mutex_bus, portMAX_DELAY);
-      delay(200);
-      write(0xAA);
-      delayMicroseconds(BYTE_INTERVAL_MICROS);
-      write(0x00);
-      xSemaphoreGive(_mutex_bus);
-    }
+    xSemaphoreTake(_mutex_bus, portMAX_DELAY);
+    delay(200);
+    write(0xAA);
+    delayMicroseconds(BYTE_INTERVAL_MICROS);
+    write(0x00);
+    xSemaphoreGive(_mutex_bus);
 
     xTaskCreatePinnedToCore(_taskfn_poll_mouse_count, "PS2Mouse", 4096, this, _config_task_priority - 1, &_task_poll_mouse_count, DEFAULT_TASK_CORE_MOUSE);
   }
@@ -372,7 +358,6 @@ namespace esp32_ps2dev
         ack();
         reset_counter();
         _mode = _last_mode;
-        _save_internal_state_to_nvs();
         break;
       default:
         write(host_cmd);
@@ -400,7 +385,6 @@ namespace esp32_ps2dev
       _scale = Scale::ONE_ONE;
       _data_reporting_enabled = false;
       _mode = Mode::STREAM_MODE;
-      _save_internal_state_to_nvs();
       reset_counter();
       break;
     case Command::RESEND: // resend
@@ -420,7 +404,6 @@ namespace esp32_ps2dev
       _scale = Scale::ONE_ONE;
       _data_reporting_enabled = false;
       _mode = Mode::STREAM_MODE;
-      _save_internal_state_to_nvs();
       reset_counter();
       break;
     case Command::DISABLE_DATA_REPORTING: // disable data reporting
@@ -429,7 +412,6 @@ namespace esp32_ps2dev
 #endif
       ack();
       _data_reporting_enabled = false;
-      _save_internal_state_to_nvs();
       reset_counter();
       break;
     case Command::ENABLE_DATA_REPORTING: // enable data reporting
@@ -438,7 +420,6 @@ namespace esp32_ps2dev
 #endif
       ack();
       _data_reporting_enabled = true;
-      _save_internal_state_to_nvs();
       reset_counter();
       break;
     case Command::SET_SAMPLE_RATE: // set sample rate
@@ -468,7 +449,6 @@ namespace esp32_ps2dev
         default:
           break;
         }
-        _save_internal_state_to_nvs();
         // _min_report_interval_us = 1000000 / sample_rate;
         reset_counter();
       }
@@ -485,7 +465,6 @@ namespace esp32_ps2dev
         ESP_LOGI(TAG, "PS2Mouse::reply_to_host: Act as Intellimouse with wheel.");
 #endif
         _has_wheel = true;
-        _save_internal_state_to_nvs();
       }
       else if (_last_sample_rate[0] == 200 && _last_sample_rate[1] == 200 && _last_sample_rate[2] == 80 && _has_wheel == true)
       {
@@ -494,7 +473,6 @@ namespace esp32_ps2dev
         ESP_LOGI(TAG, "PS2Mouse::reply_to_host: Act as Intellimouse with 4th and 5th buttons.");
 #endif
         _has_4th_and_5th_buttons = true;
-        _save_internal_state_to_nvs();
       }
       else
       {
@@ -504,7 +482,6 @@ namespace esp32_ps2dev
 #endif
         _has_wheel = false;
         _has_4th_and_5th_buttons = false;
-        _save_internal_state_to_nvs();
       }
       reset_counter();
       break;
@@ -519,7 +496,6 @@ namespace esp32_ps2dev
       delayMicroseconds(BYTE_INTERVAL_MICROS);
       reset_counter();
       _mode = Mode::REMOTE_MODE;
-      _save_internal_state_to_nvs();
       break;
     case Command::SET_WRAP_MODE: // set wrap mode
 #if defined(_ESP32_PS2DEV_DEBUG_)
@@ -529,7 +505,6 @@ namespace esp32_ps2dev
       reset_counter();
       _last_mode = _mode;
       _mode = Mode::WRAP_MODE;
-      _save_internal_state_to_nvs();
       break;
     case Command::RESET_WRAP_MODE: // reset wrap mode
 #if defined(_ESP32_PS2DEV_DEBUG_)
@@ -570,7 +545,6 @@ namespace esp32_ps2dev
         //_ESP32_PS2DEV_DEBUG_.println(val, HEX);
 #endif
         ack();
-        _save_internal_state_to_nvs();
         reset_counter();
       }
       break;
@@ -580,7 +554,6 @@ namespace esp32_ps2dev
 #endif
       ack();
       _scale = Scale::TWO_ONE;
-      _save_internal_state_to_nvs();
       break;
     case Command::SET_SCALING_1_1: // set scaling 1:1
 #if defined(_ESP32_PS2DEV_DEBUG_)
@@ -588,7 +561,6 @@ namespace esp32_ps2dev
 #endif
       ack();
       _scale = Scale::ONE_ONE;
-      _save_internal_state_to_nvs();
       break;
     default:
       delayMicroseconds(BYTE_INTERVAL_MICROS);
@@ -1408,74 +1380,6 @@ namespace esp32_ps2dev
       delay(1000 / ps2mouse->get_sample_rate());
     }
     vTaskDelete(NULL);
-  }
-
-  void PS2Mouse::_save_internal_state_to_nvs()
-  {
-    auto ret = nvs_set_u8(_nvs_handle, "hasWheel", _has_wheel);
-    if (ret != ESP_OK)
-    {
-      ESP_LOGE(TAG, "PS2Mouse::_save_internal_state_to_nvs: nvs_set_u8 failed to save hasWheel.");
-    }
-    ret = nvs_set_u8(_nvs_handle, "has4and5Btn", _has_4th_and_5th_buttons);
-    if (ret != ESP_OK)
-    {
-      ESP_LOGE(TAG, "PS2Mouse::_save_internal_state_to_nvs: nvs_set_u8 failed to save has4and5Btn.");
-    }
-    ret = nvs_set_u8(_nvs_handle, "dataRepEn", _data_reporting_enabled);
-    if (ret != ESP_OK)
-    {
-      ESP_LOGE(TAG, "PS2Mouse::_save_internal_state_to_nvs: nvs_set_u8 failed to save dataRepEn.");
-    }
-    ret = nvs_set_u8(_nvs_handle, "resolution", (uint8_t)_resolution);
-    if (ret != ESP_OK)
-    {
-      ESP_LOGE(TAG, "PS2Mouse::_save_internal_state_to_nvs: nvs_set_u8 failed to save resolution.");
-    }
-    ret = nvs_set_u8(_nvs_handle, "scale", (uint8_t)_scale);
-    if (ret != ESP_OK)
-    {
-      ESP_LOGE(TAG, "PS2Mouse::_save_internal_state_to_nvs: nvs_set_u8 failed to save scale.");
-    }
-    ret = nvs_set_u8(_nvs_handle, "mode", (uint8_t)_mode);
-    if (ret != ESP_OK)
-    {
-      ESP_LOGE(TAG, "PS2Mouse::_save_internal_state_to_nvs: nvs_set_u8 failed to save mode.");
-    }
-  }
-
-  void PS2Mouse::_load_internal_state_from_nvs()
-  {
-    auto ret = nvs_get_u8(_nvs_handle, "hasWheel", (uint8_t *)&_has_wheel);
-    if (ret != ESP_OK)
-    {
-      ESP_LOGE(TAG, "PS2Mouse::_load_internal_state_from_nvs: nvs_get_u8 failed to load hasWheel.");
-    }
-    nvs_get_u8(_nvs_handle, "has4and5Btn", (uint8_t *)&_has_4th_and_5th_buttons);
-    if (ret != ESP_OK)
-    {
-      ESP_LOGE(TAG, "PS2Mouse::_load_internal_state_from_nvs: nvs_get_u8 failed to load has4and5Btn.");
-    }
-    nvs_get_u8(_nvs_handle, "dataRepEn", (uint8_t *)&_data_reporting_enabled);
-    if (ret != ESP_OK)
-    {
-      ESP_LOGE(TAG, "PS2Mouse::_load_internal_state_from_nvs: nvs_get_u8 failed to load dataRepEn.");
-    }
-    nvs_get_u8(_nvs_handle, "resolution", (uint8_t *)&_resolution);
-    if (ret != ESP_OK)
-    {
-      ESP_LOGE(TAG, "PS2Mouse::_load_internal_state_from_nvs: nvs_get_u8 failed to load resolution.");
-    }
-    nvs_get_u8(_nvs_handle, "scale", (uint8_t *)&_scale);
-    if (ret != ESP_OK)
-    {
-      ESP_LOGE(TAG, "PS2Mouse::_load_internal_state_from_nvs: nvs_get_u8 failed to load scale.");
-    }
-    nvs_get_u8(_nvs_handle, "mode", (uint8_t *)&_mode);
-    if (ret != ESP_OK)
-    {
-      ESP_LOGE(TAG, "PS2Mouse::_load_internal_state_from_nvs: nvs_get_u8 failed to load mode.");
-    }
   }
 
   void PS2Keyboard::keyHid_send(uint8_t btkey, bool keyDown)
