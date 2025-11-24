@@ -1275,23 +1275,28 @@ void BTKeyboard::hidh_callback(void *handler_args, esp_event_base_t base, int32_
           }
         }
 
-        size_t num_maps;
-        esp_hid_raw_report_map_t *report_maps;
+        size_t num_maps = 0;
+        esp_hid_raw_report_map_t *report_maps = nullptr;
         if (esp_hidh_dev_report_maps_get(param->open.dev, &num_maps, &report_maps))
         {
           ESP_LOGE(TAG, " Failed getting report maps for the device.");
         }
-
-        ESP_LOG_BUFFER_HEX_LEVEL("RAW REPORT MAP: ", report_maps[0].data, report_maps[0].len, ESP_LOG_DEBUG);
+        else if ((report_maps != nullptr) && num_maps)
+        {
+          for (size_t map_idx = 0; map_idx < num_maps; ++map_idx)
+          {
+            ESP_LOG_BUFFER_HEX_LEVEL("RAW REPORT MAP: ", report_maps[map_idx].data, report_maps[map_idx].len, ESP_LOG_DEBUG);
+            if (hid_report_parse_multimedia_keys(report_maps[map_idx].data, report_maps[map_idx].len, param->open.dev))
+            {
+              ESP_LOGE(TAG, " Failed parsing report map index %zu for the device.", map_idx);
+            }
+          }
+        }
 
         const uint8_t *bda = esp_hidh_dev_bda_get(param->open.dev);
 
         ESP_LOGV(TAG, ESP_BD_ADDR_STR " OPEN: %s", ESP_BD_ADDR_HEX(bda), esp_hidh_dev_name_get(param->open.dev));
         esp_hidh_dev_dump(param->open.dev, stdout);
-        if (hid_report_parse_multimedia_keys(report_maps[0].data, report_maps[0].len, param->open.dev))
-        {
-          ESP_LOGE(TAG, " Failed parsing report maps for the device.");
-        }
         isConnected = true;
         // The following copies the bda of the connected device and it's transport type
         // It is a guard to retrieve a BT Classic device's address that has previously connected

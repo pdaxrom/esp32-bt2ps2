@@ -1,4 +1,5 @@
 #include "esp32-ps2dev.h"
+#include <array>
 
 #define NOP() asm volatile("nop")
 #define HIGH 0x1
@@ -10,6 +11,137 @@
 
 namespace esp32_ps2dev
 {
+
+  namespace
+  {
+    constexpr int16_t INVALID_KEY = -1;
+
+    std::array<int16_t, 256> build_hid_lookup()
+    {
+      std::array<int16_t, 256> map{};
+      map.fill(INVALID_KEY);
+      auto assign = [&](uint8_t hid, scancodes::Key key) {
+        map[hid] = static_cast<int16_t>(key);
+      };
+
+      assign(0x04, scancodes::Key::K_A);
+      assign(0x05, scancodes::Key::K_B);
+      assign(0x06, scancodes::Key::K_C);
+      assign(0x07, scancodes::Key::K_D);
+      assign(0x08, scancodes::Key::K_E);
+      assign(0x09, scancodes::Key::K_F);
+      assign(0x0A, scancodes::Key::K_G);
+      assign(0x0B, scancodes::Key::K_H);
+      assign(0x0C, scancodes::Key::K_I);
+      assign(0x0D, scancodes::Key::K_J);
+      assign(0x0E, scancodes::Key::K_K);
+      assign(0x0F, scancodes::Key::K_L);
+      assign(0x10, scancodes::Key::K_M);
+      assign(0x11, scancodes::Key::K_N);
+      assign(0x12, scancodes::Key::K_O);
+      assign(0x13, scancodes::Key::K_P);
+      assign(0x14, scancodes::Key::K_Q);
+      assign(0x15, scancodes::Key::K_R);
+      assign(0x16, scancodes::Key::K_S);
+      assign(0x17, scancodes::Key::K_T);
+      assign(0x18, scancodes::Key::K_U);
+      assign(0x19, scancodes::Key::K_V);
+      assign(0x1A, scancodes::Key::K_W);
+      assign(0x1B, scancodes::Key::K_X);
+      assign(0x1C, scancodes::Key::K_Y);
+      assign(0x1D, scancodes::Key::K_Z);
+      assign(0x1E, scancodes::Key::K_1);
+      assign(0x1F, scancodes::Key::K_2);
+      assign(0x20, scancodes::Key::K_3);
+      assign(0x21, scancodes::Key::K_4);
+      assign(0x22, scancodes::Key::K_5);
+      assign(0x23, scancodes::Key::K_6);
+      assign(0x24, scancodes::Key::K_7);
+      assign(0x25, scancodes::Key::K_8);
+      assign(0x26, scancodes::Key::K_9);
+      assign(0x27, scancodes::Key::K_0);
+      assign(0x28, scancodes::Key::K_RETURN);
+      assign(0x29, scancodes::Key::K_ESCAPE);
+      assign(0x2A, scancodes::Key::K_BACKSPACE);
+      assign(0x2B, scancodes::Key::K_TAB);
+      assign(0x2C, scancodes::Key::K_SPACE);
+      assign(0x2D, scancodes::Key::K_MINUS);
+      assign(0x2E, scancodes::Key::K_EQUALS);
+      assign(0x2F, scancodes::Key::K_LEFTBRACKET);
+      assign(0x30, scancodes::Key::K_RIGHTBRACKET);
+      assign(0x31, scancodes::Key::K_BACKSLASH);
+      assign(0x32, scancodes::Key::K_BACKSLASH);
+      assign(0x33, scancodes::Key::K_SEMICOLON);
+      assign(0x34, scancodes::Key::K_QUOTE);
+      assign(0x35, scancodes::Key::K_BACKQUOTE);
+      assign(0x36, scancodes::Key::K_COMMA);
+      assign(0x37, scancodes::Key::K_PERIOD);
+      assign(0x38, scancodes::Key::K_SLASH);
+      assign(0x39, scancodes::Key::K_CAPSLOCK);
+      assign(0x3A, scancodes::Key::K_F1);
+      assign(0x3B, scancodes::Key::K_F2);
+      assign(0x3C, scancodes::Key::K_F3);
+      assign(0x3D, scancodes::Key::K_F4);
+      assign(0x3E, scancodes::Key::K_F5);
+      assign(0x3F, scancodes::Key::K_F6);
+      assign(0x40, scancodes::Key::K_F7);
+      assign(0x41, scancodes::Key::K_F8);
+      assign(0x42, scancodes::Key::K_F9);
+      assign(0x43, scancodes::Key::K_F10);
+      assign(0x44, scancodes::Key::K_F11);
+      assign(0x45, scancodes::Key::K_F12);
+      assign(0x46, scancodes::Key::K_PRINT);
+      assign(0x47, scancodes::Key::K_SCROLLOCK);
+      assign(0x48, scancodes::Key::K_PAUSE);
+      assign(0x49, scancodes::Key::K_INSERT);
+      assign(0x4A, scancodes::Key::K_HOME);
+      assign(0x4B, scancodes::Key::K_PAGEUP);
+      assign(0x4C, scancodes::Key::K_DELETE);
+      assign(0x4D, scancodes::Key::K_END);
+      assign(0x4E, scancodes::Key::K_PAGEDOWN);
+      assign(0x4F, scancodes::Key::K_RIGHT);
+      assign(0x50, scancodes::Key::K_LEFT);
+      assign(0x51, scancodes::Key::K_DOWN);
+      assign(0x52, scancodes::Key::K_UP);
+      assign(0x53, scancodes::Key::K_NUMLOCK);
+      assign(0x54, scancodes::Key::K_KP_DIVIDE);
+      assign(0x55, scancodes::Key::K_KP_MULTIPLY);
+      assign(0x56, scancodes::Key::K_KP_MINUS);
+      assign(0x57, scancodes::Key::K_KP_PLUS);
+      assign(0x58, scancodes::Key::K_KP_ENTER);
+      assign(0x59, scancodes::Key::K_KP1);
+      assign(0x5A, scancodes::Key::K_KP2);
+      assign(0x5B, scancodes::Key::K_KP3);
+      assign(0x5C, scancodes::Key::K_KP4);
+      assign(0x5D, scancodes::Key::K_KP5);
+      assign(0x5E, scancodes::Key::K_KP6);
+      assign(0x5F, scancodes::Key::K_KP7);
+      assign(0x60, scancodes::Key::K_KP8);
+      assign(0x61, scancodes::Key::K_KP9);
+      assign(0x62, scancodes::Key::K_KP0);
+      assign(0x63, scancodes::Key::K_KP_PERIOD);
+      assign(0x64, scancodes::Key::K_BACKQUOTE);
+      assign(0x65, scancodes::Key::K_MENU);
+      assign(0x66, scancodes::Key::K_ACPI_POWER);
+      assign(0x74, scancodes::Key::K_MEDIA_PLAY_PAUSE);
+      assign(0x78, scancodes::Key::K_MEDIA_STOP);
+      assign(0x7F, scancodes::Key::K_MEDIA_MUTE);
+      assign(0x80, scancodes::Key::K_MEDIA_VOLUME_UP);
+      assign(0x81, scancodes::Key::K_MEDIA_VOLUME_DOWN);
+      assign(0xE0, scancodes::Key::K_LCTRL);
+      assign(0xE1, scancodes::Key::K_LSHIFT);
+      assign(0xE2, scancodes::Key::K_LALT);
+      assign(0xE3, scancodes::Key::K_LSUPER);
+      assign(0xE4, scancodes::Key::K_RCTRL);
+      assign(0xE5, scancodes::Key::K_RSHIFT);
+      assign(0xE6, scancodes::Key::K_RALT);
+      assign(0xE7, scancodes::Key::K_RSUPER);
+
+      return map;
+    }
+
+    const std::array<int16_t, 256> HID_TO_PS2_LOOKUP = build_hid_lookup();
+  } // namespace
 
   // THIS SECTION DEFINES THE FUNCTIONS USED BELOW AS IMPLEMENTED IN THE ARDUINO CORE FOR ESP32
   // THE CODE ON THIS FILE HAS BEEN PORTED FROM AN ARDUINO-IDE PROJECT SO THIS IS NECESSARY
@@ -1372,351 +1504,13 @@ namespace esp32_ps2dev
 
   void PS2Keyboard::keyHid_send(uint8_t btkey, bool keyDown)
   {
-    scancodes::Key key;
-    switch (btkey)
+    int16_t mapped = HID_TO_PS2_LOOKUP[btkey];
+    if (mapped == INVALID_KEY)
     {
-    case 0x04:
-      key = scancodes::Key::K_A;
-      break;
-    case 0x05:
-      key = scancodes::Key::K_B;
-      break;
-    case 0x06:
-      key = scancodes::Key::K_C;
-      break;
-    case 0x07:
-      key = scancodes::Key::K_D;
-      break;
-    case 0x08:
-      key = scancodes::Key::K_E;
-      break;
-    case 0x09:
-      key = scancodes::Key::K_F;
-      break;
-    case 0x0A:
-      key = scancodes::Key::K_G;
-      break;
-    case 0x0B:
-      key = scancodes::Key::K_H;
-      break;
-    case 0x0C:
-      key = scancodes::Key::K_I;
-      break;
-    case 0x0D:
-      key = scancodes::Key::K_J;
-      break;
-    case 0x0E:
-      key = scancodes::Key::K_K;
-      break;
-    case 0x0F:
-      key = scancodes::Key::K_L;
-      break;
-    case 0x10:
-      key = scancodes::Key::K_M;
-      break;
-    case 0x11:
-      key = scancodes::Key::K_N;
-      break;
-    case 0x12:
-      key = scancodes::Key::K_O;
-      break;
-    case 0x13:
-      key = scancodes::Key::K_P;
-      break;
-    case 0x14:
-      key = scancodes::Key::K_Q;
-      break;
-    case 0x15:
-      key = scancodes::Key::K_R;
-      break;
-    case 0x16:
-      key = scancodes::Key::K_S;
-      break;
-    case 0x17:
-      key = scancodes::Key::K_T;
-      break;
-    case 0x18:
-      key = scancodes::Key::K_U;
-      break;
-    case 0x19:
-      key = scancodes::Key::K_V;
-      break;
-    case 0x1A:
-      key = scancodes::Key::K_W;
-      break;
-    case 0x1B:
-      key = scancodes::Key::K_X;
-      break;
-    case 0x1C:
-      key = scancodes::Key::K_Y;
-      break;
-    case 0x1D:
-      key = scancodes::Key::K_Z;
-      break;
-    case 0x1E:
-      key = scancodes::Key::K_1;
-      break;
-    case 0x1F:
-      key = scancodes::Key::K_2;
-      break;
-    case 0x20:
-      key = scancodes::Key::K_3;
-      break;
-    case 0x21:
-      key = scancodes::Key::K_4;
-      break;
-    case 0x22:
-      key = scancodes::Key::K_5;
-      break;
-    case 0x23:
-      key = scancodes::Key::K_6;
-      break;
-    case 0x24:
-      key = scancodes::Key::K_7;
-      break;
-    case 0x25:
-      key = scancodes::Key::K_8;
-      break;
-    case 0x26:
-      key = scancodes::Key::K_9;
-      break;
-    case 0x27:
-      key = scancodes::Key::K_0;
-      break;
-    case 0x28:
-      key = scancodes::Key::K_RETURN;
-      break;
-    case 0x29:
-      key = scancodes::Key::K_ESCAPE;
-      break;
-    case 0x2A:
-      key = scancodes::Key::K_BACKSPACE;
-      break;
-    case 0x2B:
-      key = scancodes::Key::K_TAB;
-      break;
-    case 0x2C:
-      key = scancodes::Key::K_SPACE;
-      break;
-    case 0x2D:
-      key = scancodes::Key::K_MINUS;
-      break;
-    case 0x2E:
-      key = scancodes::Key::K_EQUALS;
-      break;
-    case 0x2F:
-      key = scancodes::Key::K_LEFTBRACKET;
-      break;
-    case 0x30:
-      key = scancodes::Key::K_RIGHTBRACKET;
-      break;
-    case 0x31:
-      key = scancodes::Key::K_BACKSLASH;
-      break;
-    case 0x32:
-      key = scancodes::Key::K_BACKSLASH;
-      break;
-    case 0x33:
-      key = scancodes::Key::K_SEMICOLON;
-      break;
-    case 0x34:
-      key = scancodes::Key::K_QUOTE;
-      break;
-    case 0x35:
-      key = scancodes::Key::K_BACKQUOTE;
-      break;
-    case 0x36:
-      key = scancodes::Key::K_COMMA;
-      break;
-    case 0x37:
-      key = scancodes::Key::K_PERIOD;
-      break;
-    case 0x38:
-      key = scancodes::Key::K_SLASH;
-      break;
-    case 0x39:
-      key = scancodes::Key::K_CAPSLOCK;
-      break;
-    case 0x3A:
-      key = scancodes::Key::K_F1;
-      break;
-    case 0x3B:
-      key = scancodes::Key::K_F2;
-      break;
-    case 0x3C:
-      key = scancodes::Key::K_F3;
-      break;
-    case 0x3D:
-      key = scancodes::Key::K_F4;
-      break;
-    case 0x3E:
-      key = scancodes::Key::K_F5;
-      break;
-    case 0x3F:
-      key = scancodes::Key::K_F6;
-      break;
-    case 0x40:
-      key = scancodes::Key::K_F7;
-      break;
-    case 0x41:
-      key = scancodes::Key::K_F8;
-      break;
-    case 0x42:
-      key = scancodes::Key::K_F9;
-      break;
-    case 0x43:
-      key = scancodes::Key::K_F10;
-      break;
-    case 0x44:
-      key = scancodes::Key::K_F11;
-      break;
-    case 0x45:
-      key = scancodes::Key::K_F12;
-      break;
-    case 0x46:
-      key = scancodes::Key::K_PRINT;
-      break;
-    case 0x47:
-      key = scancodes::Key::K_SCROLLOCK;
-      break;
-    case 0x48:
-      key = scancodes::Key::K_PAUSE;
-      break;
-    case 0x49:
-      key = scancodes::Key::K_INSERT;
-      break;
-    case 0x4A:
-      key = scancodes::Key::K_HOME;
-      break;
-    case 0x4B:
-      key = scancodes::Key::K_PAGEUP;
-      break;
-    case 0x4C:
-      key = scancodes::Key::K_DELETE;
-      break;
-    case 0x4D:
-      key = scancodes::Key::K_END;
-      break;
-    case 0x4E:
-      key = scancodes::Key::K_PAGEDOWN;
-      break;
-    case 0x4F:
-      key = scancodes::Key::K_RIGHT;
-      break;
-    case 0x50:
-      key = scancodes::Key::K_LEFT;
-      break;
-    case 0x51:
-      key = scancodes::Key::K_DOWN;
-      break;
-    case 0x52:
-      key = scancodes::Key::K_UP;
-      break;
-    case 0x53:
-      key = scancodes::Key::K_NUMLOCK;
-      break;
-    case 0x54:
-      key = scancodes::Key::K_KP_DIVIDE;
-      break;
-    case 0x55:
-      key = scancodes::Key::K_KP_MULTIPLY;
-      break;
-    case 0x56:
-      key = scancodes::Key::K_KP_MINUS;
-      break;
-    case 0x57:
-      key = scancodes::Key::K_KP_PLUS;
-      break;
-    case 0x58:
-      key = scancodes::Key::K_KP_ENTER;
-      break;
-    case 0x59:
-      key = scancodes::Key::K_KP1;
-      break;
-    case 0x5A:
-      key = scancodes::Key::K_KP2;
-      break;
-    case 0x5B:
-      key = scancodes::Key::K_KP3;
-      break;
-    case 0x5C:
-      key = scancodes::Key::K_KP4;
-      break;
-    case 0x5D:
-      key = scancodes::Key::K_KP5;
-      break;
-    case 0x5E:
-      key = scancodes::Key::K_KP6;
-      break;
-    case 0x5F:
-      key = scancodes::Key::K_KP7;
-      break;
-    case 0x60:
-      key = scancodes::Key::K_KP8;
-      break;
-    case 0x61:
-      key = scancodes::Key::K_KP9;
-      break;
-    case 0x62:
-      key = scancodes::Key::K_KP0;
-      break;
-    case 0x63:
-      key = scancodes::Key::K_KP_PERIOD;
-      break;
-    case 0x64:
-      key = scancodes::Key::K_BACKQUOTE;
-      break;
-    case 0x65:
-      key = scancodes::Key::K_MENU;
-      break;
-    case 0x66:
-      key = scancodes::Key::K_ACPI_POWER;
-      break;
-    case 0x74:
-      key = scancodes::Key::K_MEDIA_PLAY_PAUSE;
-      break;
-    case 0x78:
-      key = scancodes::Key::K_MEDIA_STOP;
-      break;
-    case 0x7F:
-      key = scancodes::Key::K_MEDIA_MUTE;
-      break;
-    case 0x80:
-      key = scancodes::Key::K_MEDIA_VOLUME_UP;
-      break;
-    case 0x81:
-      key = scancodes::Key::K_MEDIA_VOLUME_DOWN;
-      break;
-    case 0xE0:
-      key = scancodes::Key::K_LCTRL;
-      break;
-    case 0xE1:
-      key = scancodes::Key::K_LSHIFT;
-      break;
-    case 0xE2:
-      key = scancodes::Key::K_LALT;
-      break;
-    case 0xE3:
-      key = scancodes::Key::K_LSUPER;
-      break;
-    case 0xE4:
-      key = scancodes::Key::K_RCTRL;
-      break;
-    case 0xE5:
-      key = scancodes::Key::K_RSHIFT;
-      break;
-    case 0xE6:
-      key = scancodes::Key::K_RALT;
-      break;
-    case 0xE7:
-      key = scancodes::Key::K_RSUPER;
-      break;
-
-    default:
       return;
-      break;
     }
 
+    scancodes::Key key = static_cast<scancodes::Key>(mapped);
     if (keyDown)
       keydown(key);
     else
