@@ -467,7 +467,7 @@ extern "C"
 
             ////////////////////// MULTIMEDIA KEYS (CCONTROL HID USAGE CODES) SECTION
 
-            if (bt_keyboard.wait_for_low_event_CCONTROL(infoCCONTROL, 0)) // return immediately if queue empty
+            if (bt_keyboard.wait_for_low_event_CCONTROL(infoCCONTROL, repeat_period))
             {
                 auto release_ccontrol = [&](uint16_t key) {
                     ESP_LOGD(TAG, "Up CCONTROL key: %x", key);
@@ -485,10 +485,6 @@ extern "C"
                 handle_key_presses<uint16_t>(infoCCONTROL.keys, infoBufCCONTROL.keys, press_ccontrol);
 
                 infoBufCCONTROL = infoCCONTROL; // Now all the keys are handled, we save the state
-            }
-            else
-            {
-                vTaskDelay(pdMS_TO_TICKS(1));
             }
         }
     }

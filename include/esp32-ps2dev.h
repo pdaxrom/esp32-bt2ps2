@@ -3,6 +3,7 @@
 
 #include <initializer_list>
 #include <stack>
+#include <array>
 
 // #include "Arduino.h"
 #include "freertos/FreeRTOS.h"
@@ -232,8 +233,11 @@ namespace esp32_ps2dev
     bool _led_num_lock = false;
     bool _led_caps_lock = false;
     int _scan_code_set = 2;
-    // scancode set 3 parameters
-    bool _all_keys_to_make_only = false;
+    std::array<bool, scancodes::KEY_COUNT> _key_make_only{};
+    void set_all_keys_make_only(bool makeOnly);
+    void set_specific_key_make_only(scancodes::Key key, bool makeOnly);
+    bool is_key_make_only(scancodes::Key key) const;
+    void configure_specific_key(uint8_t scan_code, bool makeOnly);
     _leds_callback leds_callback = nullptr;
   };
 

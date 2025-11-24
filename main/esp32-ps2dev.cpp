@@ -1,5 +1,6 @@
 #include "esp32-ps2dev.h"
 #include <array>
+#include <algorithm>
 
 #define NOP() asm volatile("nop")
 #define HIGH 0x1
@@ -175,6 +176,19 @@ namespace esp32_ps2dev
         if (entry.usage == usage)
         {
           out_key = entry.key;
+          return true;
+        }
+      }
+      return false;
+    }
+
+    bool key_from_set3_code(uint8_t code, scancodes::Key &out_key)
+    {
+      for (size_t idx = 0; idx < scancodes::KEY_COUNT; ++idx)
+      {
+        if (scancodes::MAKE_SET3_CODES_LEN[idx] == 1 && scancodes::MAKE_SET3_CODES[idx][0] == code)
+        {
+          out_key = static_cast<scancodes::Key>(idx);
           return true;
         }
       }
@@ -909,6 +923,35 @@ namespace esp32_ps2dev
     delay(200);
     write(0xAA);
     xSemaphoreGive(_mutex_bus);
+    set_all_keys_make_only(false);
+  }
+  void PS2Keyboard::set_all_keys_make_only(bool makeOnly)
+  {
+    std::fill(_key_make_only.begin(), _key_make_only.end(), makeOnly);
+  }
+  void PS2Keyboard::set_specific_key_make_only(scancodes::Key key, bool makeOnly)
+  {
+    _key_make_only[static_cast<size_t>(key)] = makeOnly;
+  }
+  bool PS2Keyboard::is_key_make_only(scancodes::Key key) const
+  {
+    return _key_make_only[static_cast<size_t>(key)];
+  }
+  void PS2Keyboard::configure_specific_key(uint8_t scan_code, bool makeOnly)
+  {
+    if (_scan_code_set != 3)
+    {
+      return;
+    }
+    scancodes::Key key;
+    if (key_from_set3_code(scan_code, key))
+    {
+      set_specific_key_make_only(key, makeOnly);
+    }
+    else
+    {
+      ESP_LOGW(TAG, "Unknown Set 3 key code 0x%02x for make-only configuration", scan_code);
+    }
   }
   bool PS2Keyboard::data_reporting_enabled() { return _data_reporting_enabled; }
   bool PS2Keyboard::is_scroll_lock_led_on() { return _led_scroll_lock; }
@@ -930,7 +973,7 @@ namespace esp32_ps2dev
         delay(1);
       _data_reporting_enabled = true; // some systems don't enable data reporting after issuing a RESET command, so we do it by default
       _scan_code_set = 2;
-      _all_keys_to_make_only = false;
+      set_all_keys_make_only(false);
       break;
     case Command::RESEND: // resend
 #if defined(_ESP32_PS2DEV_DEBUG_)
@@ -944,6 +987,7 @@ namespace esp32_ps2dev
 #endif // _ESP32_PS2DEV_DEBUG_
        // enter stream mode
       ack();
+      set_all_keys_make_only(false);
       break;
     case Command::DISABLE_DATA_REPORTING: // disable data reporting
 #if defined(_ESP32_PS2DEV_DEBUG_)
@@ -992,6 +1036,7 @@ namespace esp32_ps2dev
           break;
         } else if (val == 2 || val == 3) {
           _scan_code_set = val;
+          set_all_keys_make_only(false);
         }
       }
       break;
@@ -1028,60 +1073,118 @@ namespace esp32_ps2dev
 #if defined(_ESP32_PS2DEV_DEBUG_)
       ESP_LOGI(TAG, "PS2Keyboard::reply_to_host: Set all keys to typematic/autorepeat only");
 #endif // _ESP32_PS2DEV_DEBUG_
-      ack();
-      _all_keys_to_make_only = true;
+      if (_scan_code_set == 3)
+      {
+        ack();
+        set_all_keys_make_only(true);
+      }
+      else
+      {
+        ack();
+      }
       break;
     case Command::SET_ALL_KEYS_TO_MAKE_RELEASE: // Set all keys to make/release (scancode set 3 only)
 #if defined(_ESP32_PS2DEV_DEBUG_)
       ESP_LOGI(TAG, "PS2Keyboard::reply_to_host: Set all keys to make/release");
 #endif // _ESP32_PS2DEV_DEBUG_
-      ack();
-      _all_keys_to_make_only = false;
+      if (_scan_code_set == 3)
+      {
+        ack();
+        set_all_keys_make_only(false);
+      }
+      else
+      {
+        ack();
+      }
       break;
     case Command::SET_ALL_KEYS_TO_MAKE_ONLY: // Set all keys to make only (scancode set 3 only)
 #if defined(_ESP32_PS2DEV_DEBUG_)
       ESP_LOGI(TAG, "PS2Keyboard::reply_to_host: Set all keys to make only");
 #endif // _ESP32_PS2DEV_DEBUG_
-      ack();
-      _all_keys_to_make_only = true;
+      if (_scan_code_set == 3)
+      {
+        ack();
+        set_all_keys_make_only(true);
+      }
+      else
+      {
+        ack();
+      }
       break;
     case Command::SET_ALL_KEYS_TO_TYPEMATIC_AUTOREPEAT_MAKE_RELEASE: // Set all keys to typematic/autorepeat/make/release (scancode set 3 only)
 #if defined(_ESP32_PS2DEV_DEBUG_)
       ESP_LOGI(TAG, "PS2Keyboard::reply_to_host: Set all keys to typematic/autorepeat/make/release");
 #endif // _ESP32_PS2DEV_DEBUG_
-      ack();
-      _all_keys_to_make_only = false;
+      if (_scan_code_set == 3)
+      {
+        ack();
+        set_all_keys_make_only(false);
+      }
+      else
+      {
+        ack();
+      }
       break;
     case Command::SET_SPECIFIC_KEY_TO_TYPEMATIC_AUTOREPEAT_ONLY: // Set specific key to typematic/autorepeat only (scancode set 3 only)
 #if defined(_ESP32_PS2DEV_DEBUG_)
       ESP_LOGI(TAG, "PS2Keyboard::reply_to_host: Set specific key to typematic/autorepeat only");
 #endif // _ESP32_PS2DEV_DEBUG_
-      ack();
-      if (!read(&val))
-        ack(); // do nothing with the specific key
+      if (_scan_code_set == 3)
+      {
+        ack();
+        if (!read(&val))
+        {
+          ack();
+          configure_specific_key(val, true);
+        }
+      }
+      else
+      {
+        ack();
+      }
       break;
     case Command::SET_SPECIFIC_KEY_TO_MAKE_RELEASE: // Set specific key to make/release (scancode set 3 only)
 #if defined(_ESP32_PS2DEV_DEBUG_)
       ESP_LOGI(TAG, "PS2Keyboard::reply_to_host: Set specific key to make/release");
 #endif // _ESP32_PS2DEV_DEBUG_
-      ack();
-      if (!read(&val))
-        ack(); // do nothing with the specific key
+      if (_scan_code_set == 3)
+      {
+        ack();
+        if (!read(&val))
+        {
+          ack();
+          configure_specific_key(val, false);
+        }
+      }
+      else
+      {
+        ack();
+      }
       break;
     case Command::SET_SPECIFIC_KEY_TO_MAKE_ONLY: // Set specific key to make only (scancode set 3 only)
 #if defined(_ESP32_PS2DEV_DEBUG_)
       ESP_LOGI(TAG, "PS2Keyboard::reply_to_host: Set specific key to make only");
 #endif // _ESP32_PS2DEV_DEBUG_
-      ack();
-      if (!read(&val))
-        ack(); // do nothing with the specific key
+      if (_scan_code_set == 3)
+      {
+        ack();
+        if (!read(&val))
+        {
+          ack();
+          configure_specific_key(val, true);
+        }
+      }
+      else
+      {
+        ack();
+      }
       break;
     default:
       ack();
-#if defined(_ESP32_PS2DEV_DEBUG_)
+//#if defined(_ESP32_PS2DEV_DEBUG_)
       ESP_LOGI(TAG, "PS2Keyboard::reply_to_host: Unknown command received: %x", host_cmd);
       //_ESP32_PS2DEV_DEBUG_.println(host_cmd, HEX);
-#endif // _ESP32_PS2DEV_DEBUG_
+//#endif // _ESP32_PS2DEV_DEBUG_
       break;
     }
 
@@ -1101,7 +1204,9 @@ namespace esp32_ps2dev
   }
   void PS2Keyboard::keyup(scancodes::Key key)
   {
-    if (!_data_reporting_enabled || (_scan_code_set == 3 && _all_keys_to_make_only))
+    if (!_data_reporting_enabled)
+      return;
+    if (_scan_code_set == 3 && is_key_make_only(key))
       return;
     PS2Packet packet;
     packet.len = (_scan_code_set == 3) ? scancodes::BREAK_SET3_CODES_LEN[key] : scancodes::BREAK_CODES_LEN[key];
