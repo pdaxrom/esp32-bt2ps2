@@ -137,6 +137,36 @@ void handle_modifier_changes(uint8_t newModifiers, uint8_t oldModifiers)
     }
 }
 
+constexpr uint8_t CAPS_LOCK_HID = 0x39;
+
+void handle_typematic(const BTKeyboard::KeyInfo &infoBuf, int &typematicLeft, int cycle)
+{
+    if (!infoBuf.keys[0])
+    {
+        return;
+    }
+
+    typematicLeft -= cycle;
+    if (typematicLeft > 0)
+    {
+        return;
+    }
+
+    for (int i = 1; i < BTKeyboard::MAX_KEY_COUNT; i++)
+    {
+        if (infoBuf.keys[i] == 0)
+        {
+            uint8_t repeat_key = infoBuf.keys[i - 1];
+            if (repeat_key != CAPS_LOCK_HID)
+            {
+                ESP_LOGD(TAG, "Down key: %x", repeat_key);
+                keyboard.keyHid_send(repeat_key, true); // Resend the last key
+            }
+            break;
+        }
+    }
+}
+
 int NumDigits(int x) // Returns number of digits in keyboard code
 {
     x = abs(x);
@@ -404,25 +434,7 @@ extern "C"
 
             else
             {
-                if (infoBuf.keys[0])
-                { // If any key held down, do the Typematic dance
-                    typematicLeft = typematicLeft - cycle;
-                    if (typematicLeft <= 0)
-                    {
-                        for (int i = 1; i < BTKeyboard::MAX_KEY_COUNT; i++)
-                        {
-                            if (infoBuf.keys[i] == 0)
-                            {
-                                if (infoBuf.keys[i - 1] != 0x39)
-                                { // Please don't repeat caps, it's ugly
-                                    ESP_LOGD(TAG, "Down key: %x", infoBuf.keys[i - 1]);
-                                    keyboard.keyHid_send(infoBuf.keys[i - 1], true); // Resend the last key
-                                }
-                                break;
-                            }
-                        }
-                    }
-                }
+                handle_typematic(infoBuf, typematicLeft, cycle);
 
                 if (!pairingRequested)
                 {
@@ -473,6 +485,10 @@ extern "C"
                 handle_key_presses<uint16_t>(infoCCONTROL.keys, infoBufCCONTROL.keys, press_ccontrol);
 
                 infoBufCCONTROL = infoCCONTROL; // Now all the keys are handled, we save the state
+            }
+            else
+            {
+                vTaskDelay(pdMS_TO_TICKS(1));
             }
         }
     }

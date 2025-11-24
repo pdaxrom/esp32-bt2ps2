@@ -16,131 +16,170 @@ namespace esp32_ps2dev
   {
     constexpr int16_t INVALID_KEY = -1;
 
-    std::array<int16_t, 256> build_hid_lookup()
+    constexpr void assign_key(std::array<int16_t, 256> &map, uint8_t hid, scancodes::Key key)
+    {
+      map[hid] = static_cast<int16_t>(key);
+    }
+
+    constexpr std::array<int16_t, 256> build_hid_lookup()
     {
       std::array<int16_t, 256> map{};
-      map.fill(INVALID_KEY);
-      auto assign = [&](uint8_t hid, scancodes::Key key) {
-        map[hid] = static_cast<int16_t>(key);
-      };
+      for (auto &entry : map)
+      {
+        entry = INVALID_KEY;
+      }
 
-      assign(0x04, scancodes::Key::K_A);
-      assign(0x05, scancodes::Key::K_B);
-      assign(0x06, scancodes::Key::K_C);
-      assign(0x07, scancodes::Key::K_D);
-      assign(0x08, scancodes::Key::K_E);
-      assign(0x09, scancodes::Key::K_F);
-      assign(0x0A, scancodes::Key::K_G);
-      assign(0x0B, scancodes::Key::K_H);
-      assign(0x0C, scancodes::Key::K_I);
-      assign(0x0D, scancodes::Key::K_J);
-      assign(0x0E, scancodes::Key::K_K);
-      assign(0x0F, scancodes::Key::K_L);
-      assign(0x10, scancodes::Key::K_M);
-      assign(0x11, scancodes::Key::K_N);
-      assign(0x12, scancodes::Key::K_O);
-      assign(0x13, scancodes::Key::K_P);
-      assign(0x14, scancodes::Key::K_Q);
-      assign(0x15, scancodes::Key::K_R);
-      assign(0x16, scancodes::Key::K_S);
-      assign(0x17, scancodes::Key::K_T);
-      assign(0x18, scancodes::Key::K_U);
-      assign(0x19, scancodes::Key::K_V);
-      assign(0x1A, scancodes::Key::K_W);
-      assign(0x1B, scancodes::Key::K_X);
-      assign(0x1C, scancodes::Key::K_Y);
-      assign(0x1D, scancodes::Key::K_Z);
-      assign(0x1E, scancodes::Key::K_1);
-      assign(0x1F, scancodes::Key::K_2);
-      assign(0x20, scancodes::Key::K_3);
-      assign(0x21, scancodes::Key::K_4);
-      assign(0x22, scancodes::Key::K_5);
-      assign(0x23, scancodes::Key::K_6);
-      assign(0x24, scancodes::Key::K_7);
-      assign(0x25, scancodes::Key::K_8);
-      assign(0x26, scancodes::Key::K_9);
-      assign(0x27, scancodes::Key::K_0);
-      assign(0x28, scancodes::Key::K_RETURN);
-      assign(0x29, scancodes::Key::K_ESCAPE);
-      assign(0x2A, scancodes::Key::K_BACKSPACE);
-      assign(0x2B, scancodes::Key::K_TAB);
-      assign(0x2C, scancodes::Key::K_SPACE);
-      assign(0x2D, scancodes::Key::K_MINUS);
-      assign(0x2E, scancodes::Key::K_EQUALS);
-      assign(0x2F, scancodes::Key::K_LEFTBRACKET);
-      assign(0x30, scancodes::Key::K_RIGHTBRACKET);
-      assign(0x31, scancodes::Key::K_BACKSLASH);
-      assign(0x32, scancodes::Key::K_BACKSLASH);
-      assign(0x33, scancodes::Key::K_SEMICOLON);
-      assign(0x34, scancodes::Key::K_QUOTE);
-      assign(0x35, scancodes::Key::K_BACKQUOTE);
-      assign(0x36, scancodes::Key::K_COMMA);
-      assign(0x37, scancodes::Key::K_PERIOD);
-      assign(0x38, scancodes::Key::K_SLASH);
-      assign(0x39, scancodes::Key::K_CAPSLOCK);
-      assign(0x3A, scancodes::Key::K_F1);
-      assign(0x3B, scancodes::Key::K_F2);
-      assign(0x3C, scancodes::Key::K_F3);
-      assign(0x3D, scancodes::Key::K_F4);
-      assign(0x3E, scancodes::Key::K_F5);
-      assign(0x3F, scancodes::Key::K_F6);
-      assign(0x40, scancodes::Key::K_F7);
-      assign(0x41, scancodes::Key::K_F8);
-      assign(0x42, scancodes::Key::K_F9);
-      assign(0x43, scancodes::Key::K_F10);
-      assign(0x44, scancodes::Key::K_F11);
-      assign(0x45, scancodes::Key::K_F12);
-      assign(0x46, scancodes::Key::K_PRINT);
-      assign(0x47, scancodes::Key::K_SCROLLOCK);
-      assign(0x48, scancodes::Key::K_PAUSE);
-      assign(0x49, scancodes::Key::K_INSERT);
-      assign(0x4A, scancodes::Key::K_HOME);
-      assign(0x4B, scancodes::Key::K_PAGEUP);
-      assign(0x4C, scancodes::Key::K_DELETE);
-      assign(0x4D, scancodes::Key::K_END);
-      assign(0x4E, scancodes::Key::K_PAGEDOWN);
-      assign(0x4F, scancodes::Key::K_RIGHT);
-      assign(0x50, scancodes::Key::K_LEFT);
-      assign(0x51, scancodes::Key::K_DOWN);
-      assign(0x52, scancodes::Key::K_UP);
-      assign(0x53, scancodes::Key::K_NUMLOCK);
-      assign(0x54, scancodes::Key::K_KP_DIVIDE);
-      assign(0x55, scancodes::Key::K_KP_MULTIPLY);
-      assign(0x56, scancodes::Key::K_KP_MINUS);
-      assign(0x57, scancodes::Key::K_KP_PLUS);
-      assign(0x58, scancodes::Key::K_KP_ENTER);
-      assign(0x59, scancodes::Key::K_KP1);
-      assign(0x5A, scancodes::Key::K_KP2);
-      assign(0x5B, scancodes::Key::K_KP3);
-      assign(0x5C, scancodes::Key::K_KP4);
-      assign(0x5D, scancodes::Key::K_KP5);
-      assign(0x5E, scancodes::Key::K_KP6);
-      assign(0x5F, scancodes::Key::K_KP7);
-      assign(0x60, scancodes::Key::K_KP8);
-      assign(0x61, scancodes::Key::K_KP9);
-      assign(0x62, scancodes::Key::K_KP0);
-      assign(0x63, scancodes::Key::K_KP_PERIOD);
-      assign(0x64, scancodes::Key::K_BACKQUOTE);
-      assign(0x65, scancodes::Key::K_MENU);
-      assign(0x66, scancodes::Key::K_ACPI_POWER);
-      assign(0x74, scancodes::Key::K_MEDIA_PLAY_PAUSE);
-      assign(0x78, scancodes::Key::K_MEDIA_STOP);
-      assign(0x7F, scancodes::Key::K_MEDIA_MUTE);
-      assign(0x80, scancodes::Key::K_MEDIA_VOLUME_UP);
-      assign(0x81, scancodes::Key::K_MEDIA_VOLUME_DOWN);
-      assign(0xE0, scancodes::Key::K_LCTRL);
-      assign(0xE1, scancodes::Key::K_LSHIFT);
-      assign(0xE2, scancodes::Key::K_LALT);
-      assign(0xE3, scancodes::Key::K_LSUPER);
-      assign(0xE4, scancodes::Key::K_RCTRL);
-      assign(0xE5, scancodes::Key::K_RSHIFT);
-      assign(0xE6, scancodes::Key::K_RALT);
-      assign(0xE7, scancodes::Key::K_RSUPER);
+      assign_key(map, 0x04, scancodes::Key::K_A);
+      assign_key(map, 0x05, scancodes::Key::K_B);
+      assign_key(map, 0x06, scancodes::Key::K_C);
+      assign_key(map, 0x07, scancodes::Key::K_D);
+      assign_key(map, 0x08, scancodes::Key::K_E);
+      assign_key(map, 0x09, scancodes::Key::K_F);
+      assign_key(map, 0x0A, scancodes::Key::K_G);
+      assign_key(map, 0x0B, scancodes::Key::K_H);
+      assign_key(map, 0x0C, scancodes::Key::K_I);
+      assign_key(map, 0x0D, scancodes::Key::K_J);
+      assign_key(map, 0x0E, scancodes::Key::K_K);
+      assign_key(map, 0x0F, scancodes::Key::K_L);
+      assign_key(map, 0x10, scancodes::Key::K_M);
+      assign_key(map, 0x11, scancodes::Key::K_N);
+      assign_key(map, 0x12, scancodes::Key::K_O);
+      assign_key(map, 0x13, scancodes::Key::K_P);
+      assign_key(map, 0x14, scancodes::Key::K_Q);
+      assign_key(map, 0x15, scancodes::Key::K_R);
+      assign_key(map, 0x16, scancodes::Key::K_S);
+      assign_key(map, 0x17, scancodes::Key::K_T);
+      assign_key(map, 0x18, scancodes::Key::K_U);
+      assign_key(map, 0x19, scancodes::Key::K_V);
+      assign_key(map, 0x1A, scancodes::Key::K_W);
+      assign_key(map, 0x1B, scancodes::Key::K_X);
+      assign_key(map, 0x1C, scancodes::Key::K_Y);
+      assign_key(map, 0x1D, scancodes::Key::K_Z);
+      assign_key(map, 0x1E, scancodes::Key::K_1);
+      assign_key(map, 0x1F, scancodes::Key::K_2);
+      assign_key(map, 0x20, scancodes::Key::K_3);
+      assign_key(map, 0x21, scancodes::Key::K_4);
+      assign_key(map, 0x22, scancodes::Key::K_5);
+      assign_key(map, 0x23, scancodes::Key::K_6);
+      assign_key(map, 0x24, scancodes::Key::K_7);
+      assign_key(map, 0x25, scancodes::Key::K_8);
+      assign_key(map, 0x26, scancodes::Key::K_9);
+      assign_key(map, 0x27, scancodes::Key::K_0);
+      assign_key(map, 0x28, scancodes::Key::K_RETURN);
+      assign_key(map, 0x29, scancodes::Key::K_ESCAPE);
+      assign_key(map, 0x2A, scancodes::Key::K_BACKSPACE);
+      assign_key(map, 0x2B, scancodes::Key::K_TAB);
+      assign_key(map, 0x2C, scancodes::Key::K_SPACE);
+      assign_key(map, 0x2D, scancodes::Key::K_MINUS);
+      assign_key(map, 0x2E, scancodes::Key::K_EQUALS);
+      assign_key(map, 0x2F, scancodes::Key::K_LEFTBRACKET);
+      assign_key(map, 0x30, scancodes::Key::K_RIGHTBRACKET);
+      assign_key(map, 0x31, scancodes::Key::K_BACKSLASH);
+      assign_key(map, 0x32, scancodes::Key::K_BACKSLASH);
+      assign_key(map, 0x33, scancodes::Key::K_SEMICOLON);
+      assign_key(map, 0x34, scancodes::Key::K_QUOTE);
+      assign_key(map, 0x35, scancodes::Key::K_BACKQUOTE);
+      assign_key(map, 0x36, scancodes::Key::K_COMMA);
+      assign_key(map, 0x37, scancodes::Key::K_PERIOD);
+      assign_key(map, 0x38, scancodes::Key::K_SLASH);
+      assign_key(map, 0x39, scancodes::Key::K_CAPSLOCK);
+      assign_key(map, 0x3A, scancodes::Key::K_F1);
+      assign_key(map, 0x3B, scancodes::Key::K_F2);
+      assign_key(map, 0x3C, scancodes::Key::K_F3);
+      assign_key(map, 0x3D, scancodes::Key::K_F4);
+      assign_key(map, 0x3E, scancodes::Key::K_F5);
+      assign_key(map, 0x3F, scancodes::Key::K_F6);
+      assign_key(map, 0x40, scancodes::Key::K_F7);
+      assign_key(map, 0x41, scancodes::Key::K_F8);
+      assign_key(map, 0x42, scancodes::Key::K_F9);
+      assign_key(map, 0x43, scancodes::Key::K_F10);
+      assign_key(map, 0x44, scancodes::Key::K_F11);
+      assign_key(map, 0x45, scancodes::Key::K_F12);
+      assign_key(map, 0x46, scancodes::Key::K_PRINT);
+      assign_key(map, 0x47, scancodes::Key::K_SCROLLOCK);
+      assign_key(map, 0x48, scancodes::Key::K_PAUSE);
+      assign_key(map, 0x49, scancodes::Key::K_INSERT);
+      assign_key(map, 0x4A, scancodes::Key::K_HOME);
+      assign_key(map, 0x4B, scancodes::Key::K_PAGEUP);
+      assign_key(map, 0x4C, scancodes::Key::K_DELETE);
+      assign_key(map, 0x4D, scancodes::Key::K_END);
+      assign_key(map, 0x4E, scancodes::Key::K_PAGEDOWN);
+      assign_key(map, 0x4F, scancodes::Key::K_RIGHT);
+      assign_key(map, 0x50, scancodes::Key::K_LEFT);
+      assign_key(map, 0x51, scancodes::Key::K_DOWN);
+      assign_key(map, 0x52, scancodes::Key::K_UP);
+      assign_key(map, 0x53, scancodes::Key::K_NUMLOCK);
+      assign_key(map, 0x54, scancodes::Key::K_KP_DIVIDE);
+      assign_key(map, 0x55, scancodes::Key::K_KP_MULTIPLY);
+      assign_key(map, 0x56, scancodes::Key::K_KP_MINUS);
+      assign_key(map, 0x57, scancodes::Key::K_KP_PLUS);
+      assign_key(map, 0x58, scancodes::Key::K_KP_ENTER);
+      assign_key(map, 0x59, scancodes::Key::K_KP1);
+      assign_key(map, 0x5A, scancodes::Key::K_KP2);
+      assign_key(map, 0x5B, scancodes::Key::K_KP3);
+      assign_key(map, 0x5C, scancodes::Key::K_KP4);
+      assign_key(map, 0x5D, scancodes::Key::K_KP5);
+      assign_key(map, 0x5E, scancodes::Key::K_KP6);
+      assign_key(map, 0x5F, scancodes::Key::K_KP7);
+      assign_key(map, 0x60, scancodes::Key::K_KP8);
+      assign_key(map, 0x61, scancodes::Key::K_KP9);
+      assign_key(map, 0x62, scancodes::Key::K_KP0);
+      assign_key(map, 0x63, scancodes::Key::K_KP_PERIOD);
+      assign_key(map, 0x64, scancodes::Key::K_BACKQUOTE);
+      assign_key(map, 0x65, scancodes::Key::K_MENU);
+      assign_key(map, 0x66, scancodes::Key::K_ACPI_POWER);
+      assign_key(map, 0x74, scancodes::Key::K_MEDIA_PLAY_PAUSE);
+      assign_key(map, 0x78, scancodes::Key::K_MEDIA_STOP);
+      assign_key(map, 0x7F, scancodes::Key::K_MEDIA_MUTE);
+      assign_key(map, 0x80, scancodes::Key::K_MEDIA_VOLUME_UP);
+      assign_key(map, 0x81, scancodes::Key::K_MEDIA_VOLUME_DOWN);
+      assign_key(map, 0xE0, scancodes::Key::K_LCTRL);
+      assign_key(map, 0xE1, scancodes::Key::K_LSHIFT);
+      assign_key(map, 0xE2, scancodes::Key::K_LALT);
+      assign_key(map, 0xE3, scancodes::Key::K_LSUPER);
+      assign_key(map, 0xE4, scancodes::Key::K_RCTRL);
+      assign_key(map, 0xE5, scancodes::Key::K_RSHIFT);
+      assign_key(map, 0xE6, scancodes::Key::K_RALT);
+      assign_key(map, 0xE7, scancodes::Key::K_RSUPER);
 
       return map;
     }
 
-    const std::array<int16_t, 256> HID_TO_PS2_LOOKUP = build_hid_lookup();
+    constexpr std::array<int16_t, 256> HID_TO_PS2_LOOKUP = build_hid_lookup();
+
+    struct ConsumerMapping
+    {
+      uint16_t usage;
+      scancodes::Key key;
+    };
+
+    constexpr ConsumerMapping CONSUMER_MAPPINGS[] = {
+        {0xCD, scancodes::Key::K_MEDIA_PLAY_PAUSE},
+        {0xE9, scancodes::Key::K_MEDIA_VOLUME_UP},
+        {0xEA, scancodes::Key::K_MEDIA_VOLUME_DOWN},
+        {0xB6, scancodes::Key::K_MEDIA_PREV_TRACK},
+        {0xB5, scancodes::Key::K_MEDIA_NEXT_TRACK},
+        {0x183, scancodes::Key::K_MEDIA_MEDIA_SELECT},
+        {0x18A, scancodes::Key::K_MEDIA_EMAIL},
+        {0xE2, scancodes::Key::K_MEDIA_MUTE},
+        {0x221, scancodes::Key::K_MEDIA_WWW_SEARCH},
+        {0x223, scancodes::Key::K_HOME},
+        {0x196, scancodes::Key::K_MEDIA_WWW_HOME},
+        {0x224, scancodes::Key::K_MEDIA_WWW_BACK},
+    };
+
+    bool map_consumer_usage(uint16_t usage, scancodes::Key &out_key)
+    {
+      for (const auto &entry : CONSUMER_MAPPINGS)
+      {
+        if (entry.usage == usage)
+        {
+          out_key = entry.key;
+          return true;
+        }
+      }
+      return false;
+    }
   } // namespace
 
   // THIS SECTION DEFINES THE FUNCTIONS USED BELOW AS IMPLEMENTED IN THE ARDUINO CORE FOR ESP32
@@ -1520,48 +1559,9 @@ namespace esp32_ps2dev
   void PS2Keyboard::keyHid_send_CCONTROL(uint16_t btkey, bool keyDown)
   {
     scancodes::Key key;
-    switch (btkey)
+    if (!map_consumer_usage(btkey, key))
     {
-    case 0xCD:
-      key = scancodes::Key::K_MEDIA_PLAY_PAUSE;
-      break;
-    case 0xE9:
-      key = scancodes::Key::K_MEDIA_VOLUME_UP;
-      break;
-    case 0xEA:
-      key = scancodes::Key::K_MEDIA_VOLUME_DOWN;
-      break;
-    case 0xB6:
-      key = scancodes::Key::K_MEDIA_PREV_TRACK;
-      break;
-    case 0xB5:
-      key = scancodes::Key::K_MEDIA_NEXT_TRACK;
-      break;
-    case 0x183:
-      key = scancodes::Key::K_MEDIA_MEDIA_SELECT;
-      break;
-    case 0x18A:
-      key = scancodes::Key::K_MEDIA_EMAIL;
-      break;
-    case 0xE2:
-      key = scancodes::Key::K_MEDIA_MUTE;
-      break;
-    case 0x221:
-      key = scancodes::Key::K_MEDIA_WWW_SEARCH;
-      break;
-    case 0x223:
-      key = scancodes::Key::K_HOME;
-      break;
-    case 0x196:
-      key = scancodes::Key::K_MEDIA_WWW_HOME;
-      break;
-    case 0x224:
-      key = scancodes::Key::K_MEDIA_WWW_BACK;
-      break;
-
-    default:
       return;
-      break;
     }
 
     if (keyDown)

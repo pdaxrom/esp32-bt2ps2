@@ -204,6 +204,18 @@ BTKeyboard::find_scan_result(esp_bd_addr_t bda, esp_hid_scan_result_t *results)
   return nullptr;
 }
 
+static bool is_bonded_device(const esp_bd_addr_t bda, const esp_ble_bond_dev_t *dev_list, int numBonded)
+{
+  for (int j = 0; j < numBonded; ++j)
+  {
+    if (memcmp(bda, dev_list[j].bd_addr, sizeof(esp_bd_addr_t)) == 0)
+    {
+      return true;
+    }
+  }
+  return false;
+}
+
 void BTKeyboard::add_bt_scan_result(esp_bd_addr_t bda,
                                     esp_bt_cod_t *cod,
                                     esp_bt_uuid_t *uuid,
@@ -992,72 +1004,33 @@ bool BTKeyboard::devices_scan(int seconds_wait_time)
   if (results_len && numBonded > 0)
   {
     ESP_LOGV(TAG, "Checking if bonded started...");
+    bool connected_known_device = false;
     esp_hid_scan_result_t *r = results;
-    esp_hid_scan_result_t connectionRestore;
-    esp_hid_scan_result_t *cr = &connectionRestore;
-    esp_hid_scan_result_t *rc = NULL;
-    bool isLastBonded = false;
-
     while (r)
     {
-      for (int j = 0; j < numBonded; j++)
+      if (is_bonded_device(r->bda, dev_list, numBonded))
       {
-        for (int i = 0; i < ESP_BD_ADDR_LEN; i++)
+        ESP_LOGI(TAG, "Last bonded device present: " ESP_BD_ADDR_STR, ESP_BD_ADDR_HEX(r->bda));
+        lastConnected = *r;
+        if (esp_hidh_dev_open(r->bda, r->transport, r->ble.addr_type) != NULL)
         {
-          if (r->bda[i] == dev_list[j].bd_addr[i])
-            isLastBonded = true;
-          else
-          {
-            isLastBonded = false;
-            break;
-          }
-        }
-        if (isLastBonded)
-        {
-          ESP_LOGI(TAG, "Last bonded device present: " ESP_BD_ADDR_STR, ESP_BD_ADDR_HEX(dev_list[j].bd_addr));
-          break;
+          ESP_LOGI(TAG, "Connected to device: " ESP_BD_ADDR_STR, ESP_BD_ADDR_HEX(r->bda));
+          connected_known_device = true;
         }
         else
         {
-          ESP_LOGD(TAG, "Last bonded device NOT present: " ESP_BD_ADDR_STR, ESP_BD_ADDR_HEX(dev_list[j].bd_addr));
+          ESP_LOGE(TAG, "esp_hih_dev_open() returned FALSE on device: " ESP_BD_ADDR_STR, ESP_BD_ADDR_HEX(r->bda));
         }
       }
-
-      if (isLastBonded)
-      {
-        ESP_LOGI(TAG, "Last bonded device present, adding to connect list...");
-        *cr = *r;
-        if (rc == NULL)
-          rc = cr;
-        cr = cr->next;
-        isLastBonded = false;
-      }
-
       r = r->next;
     }
 
-    esp_hid_scan_result_t *lc = &lastConnected;
-
-    if (rc != NULL)
+    if (connected_known_device)
     {
-      while (rc)
-      {
-        *lc = *rc; // store device for quick-connecting later
-        if (esp_hidh_dev_open(rc->bda, rc->transport, rc->ble.addr_type) != NULL)
-        {
-          ESP_LOGI(TAG, "Connected to device: " ESP_BD_ADDR_STR, ESP_BD_ADDR_HEX(rc->bda));
-        }
-        else
-        {
-          ESP_LOGE(TAG, "esp_hih_dev_open() returned FALSE on device: " ESP_BD_ADDR_STR, ESP_BD_ADDR_HEX(rc->bda));
-        }
-        rc = rc->next;
-        lc = lc->next;
-      }
       esp_hid_scan_results_free(results);
       if (dev_list)
         free(dev_list);
-      return true; // WARNING: devices_scan retourning true doesn't mean device connected!! check isConnected for that
+      return true; // WARNING: devices_scan returning true doesn't mean device connected!! check isConnected for that
     }
   }
 
