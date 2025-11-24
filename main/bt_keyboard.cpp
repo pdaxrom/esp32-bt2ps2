@@ -962,12 +962,20 @@ bool BTKeyboard::devices_scan(int seconds_wait_time)
   int numBonded = esp_ble_get_bond_device_num();
   ESP_LOGV(TAG, "Number of bonded devices: %d", numBonded);
 
-  esp_ble_bond_dev_t *dev_list = (esp_ble_bond_dev_t *)malloc(sizeof(esp_ble_bond_dev_t) * numBonded); // bonded device information list
-
-  if ((esp_ble_get_bond_device_list(&numBonded, dev_list)) != ESP_OK)
-  { // populate list
-    ESP_LOGE(TAG, "esp_ble_get_bond_device_list failed");
-    numBonded = 0;
+  esp_ble_bond_dev_t *dev_list = nullptr;
+  if (numBonded > 0)
+  {
+    dev_list = (esp_ble_bond_dev_t *)malloc(sizeof(esp_ble_bond_dev_t) * numBonded); // bonded device information list
+    if (!dev_list)
+    {
+      ESP_LOGE(TAG, "Failed to allocate bonded device list");
+      numBonded = 0;
+    }
+    else if ((esp_ble_get_bond_device_list(&numBonded, dev_list)) != ESP_OK)
+    { // populate list
+      ESP_LOGE(TAG, "esp_ble_get_bond_device_list failed");
+      numBonded = 0;
+    }
   }
 
   if (numBonded > 0)
@@ -1047,7 +1055,8 @@ bool BTKeyboard::devices_scan(int seconds_wait_time)
         lc = lc->next;
       }
       esp_hid_scan_results_free(results);
-      free(dev_list);
+      if (dev_list)
+        free(dev_list);
       return true; // WARNING: devices_scan retourning true doesn't mean device connected!! check isConnected for that
     }
   }
@@ -1089,7 +1098,8 @@ bool BTKeyboard::devices_scan(int seconds_wait_time)
       {
         ESP_LOGI(TAG, "Connected to device: " ESP_BD_ADDR_STR, ESP_BD_ADDR_HEX(cr->bda));
         esp_hid_scan_results_free(results);
-        free(dev_list);
+        if (dev_list)
+          free(dev_list);
         return true; // WARNING: devices_scan retourning true doesn't mean device connected!! check isConnected for that
       }
       else
@@ -1099,13 +1109,15 @@ bool BTKeyboard::devices_scan(int seconds_wait_time)
     }
     // free the results
     esp_hid_scan_results_free(results);
-    free(dev_list);
+    if (dev_list)
+      free(dev_list);
 
     return false;
   }
 
   esp_hid_scan_results_free(results);
-  free(dev_list);
+  if (dev_list)
+    free(dev_list);
 
   return false;
 }
@@ -1290,8 +1302,13 @@ void BTKeyboard::hidh_callback(void *handler_args, esp_event_base_t base, int32_
         size_t map_index;
         size_t report_id;
         if (find_output_report(param->open.dev, map_index, report_id))
-          led_device_map[bda_to_string(bda)] = { param->input.dev, map_index, report_id };
+          led_device_map[bda_to_string(bda)] = { param->open.dev, map_index, report_id };
         LED_DEVICE_MAP_UNLOCK();
+
+        if (report_maps != nullptr)
+        {
+          free(report_maps);
+        }
       }
       else
       {

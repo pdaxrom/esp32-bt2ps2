@@ -721,8 +721,8 @@ namespace esp32_ps2dev
     PS2Packet packet;
     packet.len = 3;
     bool mode = (_mode == Mode::REMOTE_MODE);
-    packet.data[0] = (_button_right & 1) & ((_button_middle & 1) << 1) & ((_button_left & 1) << 2) & ((0) << 3) &
-                     (((uint8_t)_scale & 1) << 4) & ((_data_reporting_enabled & 1) << 5) & ((mode & 1) << 6) & ((0) << 7);
+    packet.data[0] = (_button_right & 1) | ((_button_middle & 1) << 1) | ((_button_left & 1) << 2) | ((0) << 3) |
+                     (((uint8_t)_scale & 1) << 4) | ((_data_reporting_enabled & 1) << 5) | ((mode & 1) << 6) | ((0) << 7);
     packet.data[1] = (uint8_t)_resolution;
     packet.data[2] = _sample_rate;
     send_packet(&packet);
