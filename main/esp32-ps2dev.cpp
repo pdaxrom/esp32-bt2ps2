@@ -938,6 +938,10 @@ namespace esp32_ps2dev
     xSemaphoreGive(_mutex_bus);
     apply_behavior_to_all(BEHAVIOR_TYP_MAKE_BREAK);
     update_typematic(_typematic_config);
+    if (_scan_code_set == 3)
+    {
+      configure_default_set3_behavior();
+    }
   }
   void PS2Keyboard::apply_behavior_to_all(const KeyBehavior &behavior)
   {
@@ -989,6 +993,24 @@ namespace esp32_ps2dev
     {
       ESP_LOGW(TAG, "Unknown Set 3 key code 0x%02x for make-only configuration", scan_code);
     }
+  }
+  static void apply_behavior_list(const std::initializer_list<uint8_t> &codes, const KeyBehavior &behavior, PS2Keyboard *kbd)
+  {
+    for (uint8_t code : codes)
+    {
+      kbd->configure_specific_key(code, behavior);
+    }
+  }
+  void PS2Keyboard::configure_default_set3_behavior()
+  {
+    static const std::initializer_list<uint8_t> makeBreak = {0x14, 0x12, 0x59, 0x11, 0x19};
+    static const std::initializer_list<uint8_t> makeOnly = {
+        0x39, 0x58, 0x67, 0x6E, 0x65, 0x6F, 0x6D, 0x76, 0x6C, 0x6B, 0x69,
+        0x77, 0x75, 0x73, 0x72, 0x70, 0x7E, 0x74, 0x7A, 0x71, 0x84, 0x79,
+        0x08, 0x07, 0x0F, 0x17, 0x1F, 0x27, 0x2F, 0x37, 0x3F, 0x47, 0x4F,
+        0x56, 0x5E, 0x57, 0x5F, 0x62};
+    apply_behavior_list(makeBreak, BEHAVIOR_MAKE_BREAK, this);
+    apply_behavior_list(makeOnly, BEHAVIOR_MAKE_ONLY, this);
   }
   bool PS2Keyboard::data_reporting_enabled() { return _data_reporting_enabled; }
   bool PS2Keyboard::is_scroll_lock_led_on() { return _led_scroll_lock; }
@@ -1077,6 +1099,10 @@ namespace esp32_ps2dev
         } else if (val == 2 || val == 3) {
           _scan_code_set = val;
           apply_behavior_to_all(BEHAVIOR_TYP_MAKE_BREAK);
+          if (_scan_code_set == 3)
+          {
+            configure_default_set3_behavior();
+          }
         }
       }
       break;

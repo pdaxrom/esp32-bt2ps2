@@ -225,6 +225,8 @@ namespace esp32_ps2dev
     void keyHid_send(uint8_t btkey, bool keyDown);
     void keyHid_send_CCONTROL(uint16_t btkey, bool keyDown);
     bool allows_typematic(uint8_t hid_code) const;
+    void configure_specific_key(uint8_t scan_code, const KeyBehavior &behavior);
+    void configure_default_set3_behavior();
     uint16_t get_typematic_delay_ms() const { return _typematic_delay_ms; }
     uint16_t get_typematic_cycle_ms() const { return _typematic_cycle_ms; }
     uint8_t get_typematic_config() const { return _typematic_config; }
@@ -245,7 +247,6 @@ namespace esp32_ps2dev
     std::array<KeyBehavior, scancodes::KEY_COUNT> _key_behaviors{};
     void apply_behavior_to_all(const KeyBehavior &behavior);
     void set_key_behavior(scancodes::Key key, const KeyBehavior &behavior);
-    void configure_specific_key(uint8_t scan_code, const KeyBehavior &behavior);
     const KeyBehavior &behavior_for_key(scancodes::Key key) const;
     bool allows_typematic_for_key(scancodes::Key key) const;
     void update_typematic(uint8_t config);
