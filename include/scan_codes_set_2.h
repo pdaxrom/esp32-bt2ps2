@@ -1,12 +1,13 @@
-#pragma once
+#ifndef ESP32_PS2DEV_SCAN_CODES_SET_2_H
+#define ESP32_PS2DEV_SCAN_CODES_SET_2_H
 
-//#include "Arduino.h"
+#include <stdint.h>
 
 // Source: http://www.computer-engineering.org/ps2keyboard/scancodes2.html
 // Archive: https://web.archive.org/web/20100225093757/http://www.computer-engineering.org/ps2keyboard/scancodes2.html
 
 
-const uint8_t MAKE_K_A[] = {0x1C};
+static const uint8_t MAKE_K_A[] = {0x1C};
 const uint8_t MAKE_K_B[] = {0x32};
 const uint8_t MAKE_K_C[] = {0x21};
 const uint8_t MAKE_K_D[] = {0x23};
@@ -258,7 +259,7 @@ const uint8_t BREAK_K_MEDIA_WWW_STOP[] = {0xE0, 0xF0, 0x28};
 const uint8_t BREAK_K_MEDIA_WWW_REFRESH[] = {0xE0, 0xF0, 0x20};
 const uint8_t BREAK_K_MEDIA_WWW_FAVORITES[] = {0xE0, 0xF0, 0x18};
 
-const uint8_t* const MAKE_CODES[] = {MAKE_K_A,
+static const uint8_t *const MAKE_CODES[] = {MAKE_K_A,
                                      MAKE_K_B,
                                      MAKE_K_C,
                                      MAKE_K_D,
@@ -384,7 +385,7 @@ const uint8_t* const MAKE_CODES[] = {MAKE_K_A,
                                      MAKE_K_MEDIA_WWW_REFRESH,
                                      MAKE_K_MEDIA_WWW_FAVORITES};
 
-const uint8_t MAKE_CODES_LEN[] = {sizeof(MAKE_K_A),
+static const uint8_t MAKE_CODES_LEN[] = {sizeof(MAKE_K_A),
                                   sizeof(MAKE_K_B),
                                   sizeof(MAKE_K_C),
                                   sizeof(MAKE_K_D),
@@ -510,7 +511,7 @@ const uint8_t MAKE_CODES_LEN[] = {sizeof(MAKE_K_A),
                                   sizeof(MAKE_K_MEDIA_WWW_REFRESH),
                                   sizeof(MAKE_K_MEDIA_WWW_FAVORITES)};
 
-const uint8_t* const BREAK_CODES[] = {BREAK_K_A,
+static const uint8_t *const BREAK_CODES[] = {BREAK_K_A,
                                       BREAK_K_B,
                                       BREAK_K_C,
                                       BREAK_K_D,
@@ -636,7 +637,7 @@ const uint8_t* const BREAK_CODES[] = {BREAK_K_A,
                                       BREAK_K_MEDIA_WWW_REFRESH,
                                       BREAK_K_MEDIA_WWW_FAVORITES};
 
-const uint8_t BREAK_CODES_LEN[] = {sizeof(BREAK_K_A),
+static const uint8_t BREAK_CODES_LEN[] = {sizeof(BREAK_K_A),
                                    sizeof(BREAK_K_B),
                                    sizeof(BREAK_K_C),
                                    sizeof(BREAK_K_D),
@@ -761,3 +762,5 @@ const uint8_t BREAK_CODES_LEN[] = {sizeof(BREAK_K_A),
                                    sizeof(BREAK_K_MEDIA_WWW_STOP),
                                    sizeof(BREAK_K_MEDIA_WWW_REFRESH),
                                    sizeof(BREAK_K_MEDIA_WWW_FAVORITES)};
+
+#endif /* ESP32_PS2DEV_SCAN_CODES_SET_2_H */

@@ -17,7 +17,6 @@ Never stop dreaming.
 #include <algorithm>
 #include "bt_keyboard.hpp" // Interface with a BT/BLE peripheral device (Keyboard & Mouse)
 #include "esp32-ps2dev.h"  // Emulate a PS/2 device
-#include "serial_mouse.h"  // Emulate a serial mouse
 
 /////////////////////////////// USER ADJUSTABLE VARIABLES //////////////////////////////////////////////////
 
@@ -27,9 +26,6 @@ const int KB_DATA_PIN = 23;
 
 const int MOUSE_CLK_PIN = 26; // VERY IMPORTANT: Not all pins are suitable out-of-the-box. Check README for more info!
 const int MOUSE_DATA_PIN = 25;
-
-static const int SERIAL_MOUSE_RS232_RTS = 15; // If you're not using serial, do not connect anything to this pin, otherwise PS/2 may not work if pulled down
-static const int SERIAL_MOUSE_RS232_RX = 4;
 
 const bool pairing_at_startup = true; // set to 'true' if you want BT & BLE pairing at startup (slower startup)
 // otherwise, pairing must be requested by pressing BOOT button (or set GPIO 0 to ground) during execution
@@ -46,9 +42,8 @@ void ble_connection_daemon(void *arg);
 void set_leds_cb(uint8_t leds);
 TaskHandle_t pairing_task_handle;
 
-esp32_ps2dev::PS2Mouse mouse(MOUSE_CLK_PIN, MOUSE_DATA_PIN);
-
-esp32_ps2dev::PS2Keyboard keyboard(KB_CLK_PIN, KB_DATA_PIN);
+ps2_mouse_t *g_ps2_mouse = nullptr;
+ps2_keyboard_t *g_ps2_keyboard = nullptr;
 
 // BTKeyboard section
 BTKeyboard bt_keyboard;
@@ -56,19 +51,19 @@ BTKeyboard bt_keyboard;
 struct ModifierAction
 {
     uint8_t mask;
-    esp32_ps2dev::scancodes::Key key;
+    esp32_ps2dev_key_t key;
     const char *label;
 };
 
 static const ModifierAction kModifierActions[] = {
-    {0x02, esp32_ps2dev::scancodes::Key::K_LSHIFT, "LSHIFT"},
-    {0x01, esp32_ps2dev::scancodes::Key::K_LCTRL, "LCTRL"},
-    {0x08, esp32_ps2dev::scancodes::Key::K_LSUPER, "LMETA"},
-    {0x04, esp32_ps2dev::scancodes::Key::K_LALT, "LALT"},
-    {0x20, esp32_ps2dev::scancodes::Key::K_RSHIFT, "RSHIFT"},
-    {0x10, esp32_ps2dev::scancodes::Key::K_RCTRL, "RCTRL"},
-    {0x80, esp32_ps2dev::scancodes::Key::K_RSUPER, "RMETA"},
-    {0x40, esp32_ps2dev::scancodes::Key::K_RALT, "RALT"},
+    {0x02, ESP32_PS2DEV_KEY_K_LSHIFT, "LSHIFT"},
+    {0x01, ESP32_PS2DEV_KEY_K_LCTRL, "LCTRL"},
+    {0x08, ESP32_PS2DEV_KEY_K_LSUPER, "LMETA"},
+    {0x04, ESP32_PS2DEV_KEY_K_LALT, "LALT"},
+    {0x20, ESP32_PS2DEV_KEY_K_RSHIFT, "RSHIFT"},
+    {0x10, ESP32_PS2DEV_KEY_K_RCTRL, "RCTRL"},
+    {0x80, ESP32_PS2DEV_KEY_K_RSUPER, "RMETA"},
+    {0x40, ESP32_PS2DEV_KEY_K_RALT, "RALT"},
 };
 
 template <typename KeyType, typename ReleaseFn>
@@ -127,13 +122,18 @@ void handle_modifier_changes(uint8_t newModifiers, uint8_t oldModifiers)
         }
 
         ESP_LOGD(TAG, "%s key: %s", now ? "Down" : "Up", action.label);
+        if (!g_ps2_keyboard)
+        {
+            continue;
+        }
+
         if (now)
         {
-            keyboard.keydown(action.key);
+            ps2_keyboard_keydown(g_ps2_keyboard, action.key);
         }
         else
         {
-            keyboard.keyup(action.key);
+            ps2_keyboard_keyup(g_ps2_keyboard, action.key);
         }
     }
 }
@@ -158,10 +158,15 @@ void handle_typematic(const BTKeyboard::KeyInfo &infoBuf, int &typematicLeft, in
     if (infoBuf.keys[i] == 0)
     {
         uint8_t repeat_key = infoBuf.keys[i - 1];
-        if (repeat_key != CAPS_LOCK_HID && keyboard.allows_typematic(repeat_key))
+        if (!g_ps2_keyboard)
+        {
+            break;
+        }
+
+        if (repeat_key != CAPS_LOCK_HID && ps2_keyboard_allows_typematic(g_ps2_keyboard, repeat_key))
         {
             ESP_LOGD(TAG, "Down key: %x", repeat_key);
-            keyboard.keyHid_send(repeat_key, true); // Resend the last key
+            ps2_keyboard_send_hid_key(g_ps2_keyboard, repeat_key, true); // Resend the last key
         }
         break;
     }
@@ -234,7 +239,7 @@ void pairing_handler(uint32_t pid) // This handler deals with BT Classic's manua
 
 static void IRAM_ATTR pairing_scan(void *arg = NULL)
 {
-    BTKeyboard::isConnected = false;
+    BTKeyboard::set_connected(false);
     pairingRequested = true;
 
     gpio_set_level(GPIO_NUM_2, 0); // Turn off LED for pairing
@@ -247,15 +252,15 @@ static void IRAM_ATTR pairing_scan(void *arg = NULL)
     ESP_LOGI(TAG, "/////////////////// PAIRING ACTIVATED ////////////////////////");
     ESP_LOGI(TAG, "Scanning...");
 
-    while (!BTKeyboard::isConnected && !pairingAborted)
+    while (!BTKeyboard::is_connected() && !pairingAborted)
     {
         bt_keyboard.devices_scan();
-        if (BTKeyboard::btFound)
+        if (BTKeyboard::bt_device_found())
         {
-            BTKeyboard::btFound = false;
+            BTKeyboard::set_bt_device_found(false);
             for (int i = 0; i < 60; i++)
             {
-                if (BTKeyboard::isConnected)
+                if (BTKeyboard::is_connected())
                     break;
                 ESP_LOGI(TAG, "Waiting for BT Classic manual code entry...");
                 vTaskDelay(1000 / portTICK_PERIOD_MS);
@@ -317,29 +322,23 @@ extern "C"
         io_conf.pull_up_en = GPIO_PULLUP_ENABLE;
         gpio_config(&io_conf);
 
-        io_conf.intr_type = GPIO_INTR_NEGEDGE; // interrupt for serial mouse
-        io_conf.mode = GPIO_MODE_INPUT;
-        io_conf.pin_bit_mask = (1ULL << SERIAL_MOUSE_RS232_RTS);
-        io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
-        io_conf.pull_up_en = GPIO_PULLUP_ENABLE;
-        gpio_config(&io_conf);
-
-        io_conf.intr_type = GPIO_INTR_DISABLE;
-        io_conf.mode = GPIO_MODE_OUTPUT;
-        io_conf.pin_bit_mask = (1ULL << SERIAL_MOUSE_RS232_RX);
-        io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
-        io_conf.pull_up_en = GPIO_PULLUP_DISABLE;
-        gpio_config(&io_conf);
-
         // init PS/2 emulation first
 
         gpio_reset_pin(GPIO_NUM_2);                       // using built-in LED for notifications
         gpio_set_direction(GPIO_NUM_2, GPIO_MODE_OUTPUT); // Set the GPIO as a push/pull output
         gpio_set_level(GPIO_NUM_2, 1);
 
-        mouse.begin();
-        keyboard.begin();
-        keyboard.set_leds_callback(set_leds_cb);
+        g_ps2_mouse = ps2_mouse_create(MOUSE_CLK_PIN, MOUSE_DATA_PIN);
+        g_ps2_keyboard = ps2_keyboard_create(KB_CLK_PIN, KB_DATA_PIN);
+        if (!g_ps2_mouse || !g_ps2_keyboard)
+        {
+            ESP_LOGE(TAG, "Failed to initialize PS/2 devices");
+            esp_restart();
+        }
+
+        ps2_mouse_begin(g_ps2_mouse);
+        ps2_keyboard_begin(g_ps2_keyboard);
+        ps2_keyboard_set_leds_callback(g_ps2_keyboard, set_leds_cb);
 
         gpio_set_level(GPIO_NUM_2, 0);
 
@@ -377,9 +376,9 @@ extern "C"
         }
 
         // typematic configuration (can be updated by host)
-        uint8_t typematicConfig = keyboard.get_typematic_config();
-        uint16_t typematicDelay = keyboard.get_typematic_delay_ms();
-        uint16_t typematicCycle = keyboard.get_typematic_cycle_ms();
+        uint8_t typematicConfig = ps2_keyboard_get_typematic_config(g_ps2_keyboard);
+        uint16_t typematicDelay = ps2_keyboard_get_typematic_delay_ms(g_ps2_keyboard);
+        uint16_t typematicCycle = ps2_keyboard_get_typematic_cycle_ms(g_ps2_keyboard);
         TickType_t repeat_period = pdMS_TO_TICKS(std::max<uint16_t>(typematicCycle, 1));
         BTKeyboard::KeyInfo info;                        // freshly received
         BTKeyboard::KeyInfo infoBuf;                     // currently pressed
@@ -405,12 +404,12 @@ extern "C"
 
         while (true)
         {
-            uint8_t configNow = keyboard.get_typematic_config();
+            uint8_t configNow = ps2_keyboard_get_typematic_config(g_ps2_keyboard);
             if (configNow != typematicConfig)
             {
                 typematicConfig = configNow;
-                typematicDelay = keyboard.get_typematic_delay_ms();
-                typematicCycle = keyboard.get_typematic_cycle_ms();
+                typematicDelay = ps2_keyboard_get_typematic_delay_ms(g_ps2_keyboard);
+                typematicCycle = ps2_keyboard_get_typematic_cycle_ms(g_ps2_keyboard);
                 repeat_period = pdMS_TO_TICKS(std::max<uint16_t>(typematicCycle, 1));
                 typematicLeft = typematicDelay;
             }
@@ -424,13 +423,13 @@ extern "C"
 
                 auto release_key = [&](uint8_t key) {
                     ESP_LOGD(TAG, "Up key: %x", key);
-                    keyboard.keyHid_send(key, false);
+                    ps2_keyboard_send_hid_key(g_ps2_keyboard, key, false);
                     gpio_set_level(GPIO_NUM_2, 1);
                 };
 
                 auto press_key = [&](uint8_t key) {
                     ESP_LOGD(TAG, "Down key: %x", key);
-                    keyboard.keyHid_send(key, true);
+                    ps2_keyboard_send_hid_key(g_ps2_keyboard, key, true);
                     gpio_set_level(GPIO_NUM_2, 0);
                 };
 
@@ -480,13 +479,13 @@ extern "C"
             {
                 auto release_ccontrol = [&](uint16_t key) {
                     ESP_LOGD(TAG, "Up CCONTROL key: %x", key);
-                    keyboard.keyHid_send_CCONTROL(key, false);
+                    ps2_keyboard_send_consumer_key(g_ps2_keyboard, key, false);
                     gpio_set_level(GPIO_NUM_2, 1);
                 };
 
                 auto press_ccontrol = [&](uint16_t key) {
                     ESP_LOGD(TAG, "Down CCONTROL key: %x", key);
-                    keyboard.keyHid_send_CCONTROL(key, true);
+                    ps2_keyboard_send_consumer_key(g_ps2_keyboard, key, true);
                     gpio_set_level(GPIO_NUM_2, 0);
                 };
 
@@ -511,7 +510,7 @@ void mouse_task(void *arg)
             continue;
         }
 
-        mouse.move(infoMouse.mouse_x, infoMouse.mouse_y, infoMouse.mouse_w);
+        ps2_mouse_move(g_ps2_mouse, infoMouse.mouse_x, infoMouse.mouse_y, infoMouse.mouse_w);
 
         // KEY SECTION (always tested)
         if ((infoMouse.mouse_buttons) != (infoMouseBuf.mouse_buttons))
@@ -521,13 +520,13 @@ void mouse_task(void *arg)
                 if (infoMouse.mouse_buttons & 0b1)
                 {
                     ESP_LOGD(TAG, "Down Mouse button 1");
-                    mouse.press(esp32_ps2dev::PS2Mouse::Button::LEFT);
+                    ps2_mouse_press(g_ps2_mouse, PS2_MOUSE_BUTTON_LEFT);
                     gpio_set_level(GPIO_NUM_2, 0);
                 }
                 else
                 {
                     ESP_LOGD(TAG, "Up Mouse button 1");
-                    mouse.release(esp32_ps2dev::PS2Mouse::Button::LEFT);
+                    ps2_mouse_release(g_ps2_mouse, PS2_MOUSE_BUTTON_LEFT);
                     gpio_set_level(GPIO_NUM_2, 1);
                 }
             }
@@ -537,13 +536,13 @@ void mouse_task(void *arg)
                 if (infoMouse.mouse_buttons & 0b10)
                 {
                     ESP_LOGD(TAG, "Down Mouse button 2");
-                    mouse.press(esp32_ps2dev::PS2Mouse::Button::RIGHT);
+                    ps2_mouse_press(g_ps2_mouse, PS2_MOUSE_BUTTON_RIGHT);
                     gpio_set_level(GPIO_NUM_2, 0);
                 }
                 else
                 {
                     ESP_LOGD(TAG, "Up Mouse button 2");
-                    mouse.release(esp32_ps2dev::PS2Mouse::Button::RIGHT);
+                    ps2_mouse_release(g_ps2_mouse, PS2_MOUSE_BUTTON_RIGHT);
                     gpio_set_level(GPIO_NUM_2, 1);
                 }
             }
@@ -553,13 +552,13 @@ void mouse_task(void *arg)
                 if (infoMouse.mouse_buttons & 0b100)
                 {
                     ESP_LOGD(TAG, "Down Mouse button 3");
-                    mouse.press(esp32_ps2dev::PS2Mouse::Button::MIDDLE);
+                    ps2_mouse_press(g_ps2_mouse, PS2_MOUSE_BUTTON_MIDDLE);
                     gpio_set_level(GPIO_NUM_2, 0);
                 }
                 else
                 {
                     ESP_LOGD(TAG, "Up Mouse button 3");
-                    mouse.release(esp32_ps2dev::PS2Mouse::Button::MIDDLE);
+                    ps2_mouse_release(g_ps2_mouse, PS2_MOUSE_BUTTON_MIDDLE);
                     gpio_set_level(GPIO_NUM_2, 1);
                 }
             }

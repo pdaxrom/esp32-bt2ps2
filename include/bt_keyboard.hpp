@@ -42,15 +42,17 @@
 #include "esp_gatt_defs.h"
 #include "esp_wifi.h"
 
-#include <vector>
-#include <map>
-#include <string>
-
 // #include "esp32-hal-bt.h"
 
-class BTKeyboard
-{
-public:
+  class BTKeyboard
+  {
+  public:
+    static constexpr size_t MAX_TEMP_USAGE_VALUES = 64;
+    static constexpr size_t MAX_MULTIMEDIA_KEYS = 16;
+    static constexpr size_t MAX_MULTIMEDIA_REPORTS = 16;
+    static constexpr size_t MAX_MULTIMEDIA_USAGES = 32;
+    static constexpr size_t MAX_MOUSE_REPORTS = 16;
+    static constexpr size_t MAX_LED_DEVICES = 8;
   typedef void pid_handler(uint32_t code);
 
   const uint8_t KEY_CAPS_LOCK = 0x39;
@@ -107,7 +109,10 @@ public:
     uint8_t mouse_buttons = 0;
   };
 
-private:
+  private:
+    struct State;
+    static State &state();
+    static State s_state;
   static constexpr char const *TAG = "BTKeyboard";
 
   static const esp_bt_mode_t HIDH_IDLE_MODE = (esp_bt_mode_t)0x00;
@@ -126,10 +131,6 @@ private:
 #else
   static const esp_bt_mode_t HID_HOST_MODE = HIDH_IDLE_MODE;
 #endif
-
-  static SemaphoreHandle_t bt_hidh_cb_semaphore;
-  static SemaphoreHandle_t ble_hidh_cb_semaphore;
-  static SemaphoreHandle_t led_device_map_semaphore;
 
   struct esp_hid_scan_result_t
   {
@@ -206,7 +207,9 @@ private:
     uint32_t usage_maximum = 0;
     uint16_t report_count = 0;
     bool contains_array = false;
-    std::vector<uint16_t> array_usages;
+    uint16_t array_usages[MAX_MULTIMEDIA_USAGES];
+    size_t array_usages_len = 0;
+    bool array_overflow = false;
   } hid_report_multimedia_control;
 
   typedef struct
@@ -223,17 +226,7 @@ private:
     uint16_t mouse_buttons_amount = 0;
   } hid_report_mouse;
 
-  static std::map<std::pair<esp_hidh_dev_t *, uint16_t>, hid_report_multimedia_control> multimedia_reports;
-  static std::map<std::pair<esp_hidh_dev_t *, uint16_t>, hid_report_mouse> mouse_reports;
   static KeyInfo infoKey;
-
-  typedef struct {
-    esp_hidh_dev_t *dev;
-    size_t map_index;
-    size_t report_id;
-  } led_device_info;
-
-  static std::map<std::string, led_device_info> led_device_map;
 
   typedef enum
   {
@@ -243,14 +236,82 @@ private:
     PARSE_WAIT_END_COLLECTION
   } s_parse_step_t;
 
-  static s_parse_step_t s_parse_step;
-  static uint8_t s_collection_depth;
-  static hid_report_params_t s_report_params;
-  static hid_report_params_t s_report_params_empty;
-  static uint16_t s_report_size;
-  static uint16_t s_report_count;
-  static int s_usages_count;
-  static std::vector<uint16_t> temp_usages_array;
+  template <size_t Capacity>
+  struct UsageBuffer
+  {
+    size_t len = 0;
+    uint16_t values[Capacity];
+
+    void clear() { len = 0; }
+
+    bool push(uint16_t value)
+    {
+      if (len >= Capacity)
+      {
+        return false;
+      }
+      values[len++] = value;
+      return true;
+    }
+  };
+
+  struct MultimediaReportEntry
+  {
+    bool in_use = false;
+    esp_hidh_dev_t *dev = nullptr;
+    uint16_t report_id = 0;
+    hid_report_multimedia_control report;
+  };
+
+  struct MouseReportEntry
+  {
+    bool in_use = false;
+    esp_hidh_dev_t *dev = nullptr;
+    uint16_t report_id = 0;
+    hid_report_mouse report;
+  };
+
+  struct LedDeviceEntry
+  {
+    bool in_use = false;
+    esp_bd_addr_t bda = {0};
+    esp_hidh_dev_t *dev = nullptr;
+    size_t map_index = 0;
+    size_t report_id = 0;
+  };
+
+  struct State
+  {
+    bool is_connected = false;
+    bool bt_found = false;
+    esp_hid_scan_result_t last_connected = {};
+    MultimediaReportEntry multimedia_reports[MAX_MULTIMEDIA_REPORTS];
+    MouseReportEntry mouse_reports[MAX_MOUSE_REPORTS];
+    LedDeviceEntry led_devices[MAX_LED_DEVICES];
+    s_parse_step_t parse_step = PARSE_WAIT_USAGE_PAGE;
+    uint8_t collection_depth = 0;
+    hid_report_params_t report_params = {};
+    hid_report_params_t report_params_empty = {};
+    uint16_t report_size = 0;
+    uint16_t report_count = 0;
+    int usages_count = 0;
+    UsageBuffer<MAX_TEMP_USAGE_VALUES> temp_usages;
+    UsageBuffer<MAX_MULTIMEDIA_KEYS> multimedia_keys;
+    SemaphoreHandle_t bt_hidh_cb_semaphore = nullptr;
+    SemaphoreHandle_t ble_hidh_cb_semaphore = nullptr;
+    SemaphoreHandle_t led_device_map_semaphore = nullptr;
+  };
+
+  static hid_report_multimedia_control *find_multimedia_report(esp_hidh_dev_t *dev, uint16_t report_id);
+  static hid_report_multimedia_control *ensure_multimedia_report(esp_hidh_dev_t *dev, uint16_t report_id);
+    static size_t multimedia_report_count();
+    static hid_report_mouse *find_mouse_report(esp_hidh_dev_t *dev, uint16_t report_id);
+    static hid_report_mouse *ensure_mouse_report(esp_hidh_dev_t *dev, uint16_t report_id);
+    static size_t mouse_report_count();
+    static LedDeviceEntry *find_led_device_by_bda(const uint8_t *bda);
+    static LedDeviceEntry *allocate_led_device(const uint8_t *bda);
+    static LedDeviceEntry *find_led_device_by_dev(esp_hidh_dev_t *dev);
+    static void remove_led_devices_for_dev(esp_hidh_dev_t *dev);
 
   typedef struct
   {
@@ -265,7 +326,6 @@ private:
 
   esp_hid_scan_result_t *bt_scan_results;
   esp_hid_scan_result_t *ble_scan_results;
-  static esp_hid_scan_result_t lastConnected;
   size_t num_bt_scan_results;
   size_t num_ble_scan_results;
 
@@ -318,7 +378,7 @@ private:
 
   void push_key(uint8_t *keys, uint8_t size);
   void push_key_CCONTROL(uint16_t *keys, uint8_t size);
-  void mouse_handle(uint8_t *report_data, std::pair<esp_hidh_dev_t *, uint16_t> *key_pair);
+  void mouse_handle(uint8_t *report_data, hid_report_mouse *report_info);
 
   QueueHandle_t event_queue;
   QueueHandle_t event_queue_CCONTROL; // queue for long 16-bit CCONTROL Usage Codes
@@ -374,6 +434,9 @@ public:
 
   static void set_leds(uint8_t leds);
 
-  static bool isConnected; // hidh callback event CLOSE turns this false when kb disconnects
-  static bool btFound;     // found a BT (not BLE) device during scan, let's wait for pairing
+  static bool is_connected();
+  static void set_connected(bool value);
+  static bool bt_device_found();
+  static void set_bt_device_found(bool value);
+
 };

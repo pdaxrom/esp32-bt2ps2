@@ -1,9 +1,12 @@
-#pragma once
+#ifndef ESP32_PS2DEV_SCAN_CODES_SET_3_H
+#define ESP32_PS2DEV_SCAN_CODES_SET_3_H
+
+#include <stdint.h>
 
 // https://aeb.win.tue.nl/linux/kbd/scancodes-10.html
 // https://aeb.win.tue.nl/linux/kbd/table.h
 
-const uint8_t MAKE_SET3_K_A[] = {0x1C};
+static const uint8_t MAKE_SET3_K_A[] = {0x1C};
 const uint8_t MAKE_SET3_K_B[] = {0x32};
 const uint8_t MAKE_SET3_K_C[] = {0x21};
 const uint8_t MAKE_SET3_K_D[] = {0x23};
@@ -255,7 +258,7 @@ const uint8_t BREAK_SET3_K_MEDIA_WWW_STOP[] = {0xF0, 0x28};
 const uint8_t BREAK_SET3_K_MEDIA_WWW_REFRESH[] = {0xF0, 0x20};
 const uint8_t BREAK_SET3_K_MEDIA_WWW_FAVORITES[] = {0xF0, 0x18};
 
-const uint8_t* const MAKE_SET3_CODES[] = {MAKE_SET3_K_A,
+static const uint8_t *const MAKE_SET3_CODES[] = {MAKE_SET3_K_A,
                                      MAKE_SET3_K_B,
                                      MAKE_SET3_K_C,
                                      MAKE_SET3_K_D,
@@ -381,7 +384,7 @@ const uint8_t* const MAKE_SET3_CODES[] = {MAKE_SET3_K_A,
                                      MAKE_SET3_K_MEDIA_WWW_REFRESH,
                                      MAKE_SET3_K_MEDIA_WWW_FAVORITES};
 
-const uint8_t MAKE_SET3_CODES_LEN[] = {sizeof(MAKE_SET3_K_A),
+static const uint8_t MAKE_SET3_CODES_LEN[] = {sizeof(MAKE_SET3_K_A),
                                   sizeof(MAKE_SET3_K_B),
                                   sizeof(MAKE_SET3_K_C),
                                   sizeof(MAKE_SET3_K_D),
@@ -507,7 +510,7 @@ const uint8_t MAKE_SET3_CODES_LEN[] = {sizeof(MAKE_SET3_K_A),
                                   sizeof(MAKE_SET3_K_MEDIA_WWW_REFRESH),
                                   sizeof(MAKE_SET3_K_MEDIA_WWW_FAVORITES)};
 
-const uint8_t* const BREAK_SET3_CODES[] = {BREAK_SET3_K_A,
+static const uint8_t *const BREAK_SET3_CODES[] = {BREAK_SET3_K_A,
                                       BREAK_SET3_K_B,
                                       BREAK_SET3_K_C,
                                       BREAK_SET3_K_D,
@@ -633,7 +636,7 @@ const uint8_t* const BREAK_SET3_CODES[] = {BREAK_SET3_K_A,
                                       BREAK_SET3_K_MEDIA_WWW_REFRESH,
                                       BREAK_SET3_K_MEDIA_WWW_FAVORITES};
 
-const uint8_t BREAK_SET3_CODES_LEN[] = {sizeof(BREAK_SET3_K_A),
+static const uint8_t BREAK_SET3_CODES_LEN[] = {sizeof(BREAK_SET3_K_A),
                                    sizeof(BREAK_SET3_K_B),
                                    sizeof(BREAK_SET3_K_C),
                                    sizeof(BREAK_SET3_K_D),
@@ -758,3 +761,5 @@ const uint8_t BREAK_SET3_CODES_LEN[] = {sizeof(BREAK_SET3_K_A),
                                    sizeof(BREAK_SET3_K_MEDIA_WWW_STOP),
                                    sizeof(BREAK_SET3_K_MEDIA_WWW_REFRESH),
                                    sizeof(BREAK_SET3_K_MEDIA_WWW_FAVORITES)};
+
+#endif /* ESP32_PS2DEV_SCAN_CODES_SET_3_H */

@@ -1,11 +1,10 @@
-#ifndef __ESP32_PS2DEV_H__
-#define __ESP32_PS2DEV_H__
+#ifndef ESP32_PS2DEV_H
+#define ESP32_PS2DEV_H
 
 #include <initializer_list>
 #include <stack>
 #include <array>
 
-// #include "Arduino.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
@@ -13,27 +12,19 @@
 #include "driver/gpio.h"
 #include "esp_timer.h"
 #include "esp_log.h"
-#include <stdint.h>
 #include "scan_codes.h"
 #include <nvs_flash.h>
 #include <string>
 
 namespace esp32_ps2dev
 {
-  // Time per clock should be 60 to 100 microseconds according to PS/2 specifications.
-  // Thus, half period should be 30 to 50 microseconds.
   const uint32_t CLK_HALF_PERIOD_MICROS = 40;
   const uint32_t CLK_QUATER_PERIOD_MICROS = CLK_HALF_PERIOD_MICROS / 2;
-  // I could not find any specification of time between bytes from the PS/2 specification.
-  // Based on observation of the mouse signal waveform using an oscilloscope, there appears to be an interval of 1 to 2 clock cycles.
-  // ref. https://youtu.be/UqRDLWGLCEk
-  const uint32_t BYTE_INTERVAL_MICROS = 500; // in v0.4 was OK: 500, change if not working and you know what you're doing.
+  const uint32_t BYTE_INTERVAL_MICROS = 500;
   const int PACKET_QUEUE_LENGTH = 20;
   const UBaseType_t DEFAULT_TASK_PRIORITY = 10;
-  //const BaseType_t DEFAULT_TASK_CORE = APP_CPU_NUM;
   const BaseType_t DEFAULT_TASK_CORE = 0;
   const BaseType_t DEFAULT_TASK_CORE_MOUSE = 1;
-  // The device should check for "HOST_REQUEST_TO_SEND" at a interval not exceeding 10 milliseconds.
   const uint32_t INTERVAL_CHECKING_HOST_SEND_REQUEST_MILLIS = 9;
   const uint32_t MOUSE_CLICK_PRESSING_DURATION_MILLIS = 100;
 
@@ -48,6 +39,7 @@ namespace esp32_ps2dev
   {
   public:
     PS2dev(int clk, int data);
+    virtual ~PS2dev() = default;
 
     enum class BusState
     {
@@ -187,7 +179,7 @@ namespace esp32_ps2dev
       ACK = 0xFA,
       SET_SPECIFIC_KEY_TO_MAKE_ONLY = 0xFD,
       SET_SPECIFIC_KEY_TO_MAKE_RELEASE = 0xFC,
-      SET_SPECIFIC_KEY_TO_TYPEMATIC_AUTOREPEAT_ONLY=0xFB,
+      SET_SPECIFIC_KEY_TO_TYPEMATIC_AUTOREPEAT_ONLY = 0xFB,
       SET_ALL_KEYS_TO_TYPEMATIC_AUTOREPEAT_MAKE_RELEASE = 0xFA,
       SET_ALL_KEYS_TO_MAKE_ONLY = 0xF9,
       SET_ALL_KEYS_TO_MAKE_RELEASE = 0xF8,
@@ -203,7 +195,8 @@ namespace esp32_ps2dev
       BAT_SUCCESS = 0xAA,
     };
 
-    enum KeyLed: uint8_t {
+    enum KeyLed : uint8_t
+    {
       KEYBOARD_LED_SCROLLLOCK = 1 << 0,
       KEYBOARD_LED_NUMLOCK = 1 << 1,
       KEYBOARD_LED_CAPSLOCK = 1 << 2,
@@ -237,7 +230,11 @@ namespace esp32_ps2dev
     uint8_t get_typematic_config() const { return _typematic_config; }
 
     void set_leds_callback(_leds_callback cb) { leds_callback = cb; }
-    void trigger_leds_callback(uint8_t leds) { if (leds_callback != nullptr) leds_callback(leds); }
+    void trigger_leds_callback(uint8_t leds)
+    {
+      if (leds_callback != nullptr)
+        leds_callback(leds);
+    }
 
   protected:
     bool _data_reporting_enabled = true;
@@ -252,7 +249,7 @@ namespace esp32_ps2dev
     const KeyBehavior &behavior_for_key(scancodes::Key key) const;
     bool allows_typematic_for_key(scancodes::Key key) const;
     void update_typematic(uint8_t config);
-    uint8_t _typematic_config = 0x0B; // default 500ms delay, ~10.9cps
+    uint8_t _typematic_config = 0x0B;
     uint16_t _typematic_delay_ms = 500;
     uint16_t _typematic_cycle_ms = 50;
     _leds_callback leds_callback = nullptr;
@@ -264,4 +261,57 @@ namespace esp32_ps2dev
 
 } // namespace esp32_ps2dev
 
-#endif // __ESP32_PS2DEV_H__
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+typedef enum
+{
+  PS2_MOUSE_BUTTON_LEFT = 0,
+  PS2_MOUSE_BUTTON_RIGHT,
+  PS2_MOUSE_BUTTON_MIDDLE,
+  PS2_MOUSE_BUTTON_4,
+  PS2_MOUSE_BUTTON_5,
+} ps2_mouse_button_t;
+
+typedef struct ps2_mouse_handle ps2_mouse_t;
+typedef struct ps2_keyboard_handle ps2_keyboard_t;
+
+ps2_mouse_t *ps2_mouse_create(int clk, int data);
+void ps2_mouse_destroy(ps2_mouse_t *mouse);
+void ps2_mouse_begin(ps2_mouse_t *mouse);
+bool ps2_mouse_has_wheel(const ps2_mouse_t *mouse);
+bool ps2_mouse_has_4th_and_5th_buttons(const ps2_mouse_t *mouse);
+bool ps2_mouse_data_reporting_enabled(const ps2_mouse_t *mouse);
+void ps2_mouse_reset_counter(ps2_mouse_t *mouse);
+uint8_t ps2_mouse_get_sample_rate(const ps2_mouse_t *mouse);
+void ps2_mouse_move(ps2_mouse_t *mouse, int16_t x, int16_t y, int8_t wheel);
+void ps2_mouse_press(ps2_mouse_t *mouse, ps2_mouse_button_t button);
+void ps2_mouse_release(ps2_mouse_t *mouse, ps2_mouse_button_t button);
+void ps2_mouse_click(ps2_mouse_t *mouse, ps2_mouse_button_t button);
+
+ps2_keyboard_t *ps2_keyboard_create(int clk, int data);
+void ps2_keyboard_destroy(ps2_keyboard_t *keyboard);
+void ps2_keyboard_begin(ps2_keyboard_t *keyboard);
+bool ps2_keyboard_data_reporting_enabled(const ps2_keyboard_t *keyboard);
+bool ps2_keyboard_is_scroll_lock_on(const ps2_keyboard_t *keyboard);
+bool ps2_keyboard_is_num_lock_on(const ps2_keyboard_t *keyboard);
+bool ps2_keyboard_is_caps_lock_on(const ps2_keyboard_t *keyboard);
+void ps2_keyboard_keydown(ps2_keyboard_t *keyboard, esp32_ps2dev_key_t key);
+void ps2_keyboard_keyup(ps2_keyboard_t *keyboard, esp32_ps2dev_key_t key);
+void ps2_keyboard_type_key(ps2_keyboard_t *keyboard, esp32_ps2dev_key_t key);
+void ps2_keyboard_type_text(ps2_keyboard_t *keyboard, const char *text);
+void ps2_keyboard_send_hid_key(ps2_keyboard_t *keyboard, uint8_t bt_key, bool key_down);
+void ps2_keyboard_send_consumer_key(ps2_keyboard_t *keyboard, uint16_t usage, bool key_down);
+bool ps2_keyboard_allows_typematic(const ps2_keyboard_t *keyboard, uint8_t hid_code);
+uint16_t ps2_keyboard_get_typematic_delay_ms(const ps2_keyboard_t *keyboard);
+uint16_t ps2_keyboard_get_typematic_cycle_ms(const ps2_keyboard_t *keyboard);
+uint8_t ps2_keyboard_get_typematic_config(const ps2_keyboard_t *keyboard);
+void ps2_keyboard_set_leds_callback(ps2_keyboard_t *keyboard, void (*cb)(uint8_t leds));
+void ps2_keyboard_trigger_leds_callback(ps2_keyboard_t *keyboard, uint8_t leds);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* ESP32_PS2DEV_H */

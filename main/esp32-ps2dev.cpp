@@ -1210,10 +1210,10 @@ namespace esp32_ps2dev
     if (!behavior.make)
       return;
     PS2Packet packet;
-    packet.len = (_scan_code_set == 3) ? scancodes::MAKE_SET3_CODES_LEN[key] : scancodes::MAKE_CODES_LEN[key];
+    packet.len = (_scan_code_set == 3) ? scancodes::MAKE_SET3_CODES_LEN[static_cast<size_t>(key)] : scancodes::MAKE_CODES_LEN[static_cast<size_t>(key)];
     for (uint8_t i = 0; i < packet.len; i++)
     {
-      packet.data[i] = (_scan_code_set == 3) ? scancodes::MAKE_SET3_CODES[key][i] : scancodes::MAKE_CODES[key][i];
+      packet.data[i] = (_scan_code_set == 3) ? scancodes::MAKE_SET3_CODES[static_cast<size_t>(key)][i] : scancodes::MAKE_CODES[static_cast<size_t>(key)][i];
     }
     send_packet(&packet);
   }
@@ -1225,10 +1225,10 @@ namespace esp32_ps2dev
     if (!behavior.break_code)
       return;
     PS2Packet packet;
-    packet.len = (_scan_code_set == 3) ? scancodes::BREAK_SET3_CODES_LEN[key] : scancodes::BREAK_CODES_LEN[key];
+    packet.len = (_scan_code_set == 3) ? scancodes::BREAK_SET3_CODES_LEN[static_cast<size_t>(key)] : scancodes::BREAK_CODES_LEN[static_cast<size_t>(key)];
     for (uint8_t i = 0; i < packet.len; i++)
     {
-      packet.data[i] = (_scan_code_set == 3) ? scancodes::BREAK_SET3_CODES[key][i] : scancodes::BREAK_CODES[key][i];
+      packet.data[i] = (_scan_code_set == 3) ? scancodes::BREAK_SET3_CODES[static_cast<size_t>(key)][i] : scancodes::BREAK_CODES[static_cast<size_t>(key)][i];
     }
     send_packet(&packet);
   }
@@ -1692,3 +1692,247 @@ namespace esp32_ps2dev
   }
 
 } // namespace esp32_ps2dev
+
+extern "C"
+{
+
+  struct ps2_mouse_handle
+  {
+    esp32_ps2dev::PS2Mouse *impl;
+  };
+
+  static esp32_ps2dev::PS2Mouse::Button to_mouse_button(ps2_mouse_button_t button)
+  {
+    switch (button)
+    {
+    case PS2_MOUSE_BUTTON_LEFT:
+      return esp32_ps2dev::PS2Mouse::Button::LEFT;
+    case PS2_MOUSE_BUTTON_RIGHT:
+      return esp32_ps2dev::PS2Mouse::Button::RIGHT;
+    case PS2_MOUSE_BUTTON_MIDDLE:
+      return esp32_ps2dev::PS2Mouse::Button::MIDDLE;
+    case PS2_MOUSE_BUTTON_4:
+      return esp32_ps2dev::PS2Mouse::Button::BUTTON_4;
+    case PS2_MOUSE_BUTTON_5:
+      return esp32_ps2dev::PS2Mouse::Button::BUTTON_5;
+    default:
+      return esp32_ps2dev::PS2Mouse::Button::LEFT;
+    }
+  }
+
+  ps2_mouse_t *ps2_mouse_create(int clk, int data)
+  {
+    ps2_mouse_handle *handle = new ps2_mouse_handle;
+    handle->impl = new esp32_ps2dev::PS2Mouse(clk, data);
+    return handle;
+  }
+
+  void ps2_mouse_destroy(ps2_mouse_t *mouse)
+  {
+    if (!mouse)
+      return;
+    delete mouse->impl;
+    delete mouse;
+  }
+
+  void ps2_mouse_begin(ps2_mouse_t *mouse)
+  {
+    if (mouse && mouse->impl)
+    {
+      mouse->impl->begin();
+    }
+  }
+
+  bool ps2_mouse_has_wheel(const ps2_mouse_t *mouse)
+  {
+    return mouse && mouse->impl ? mouse->impl->has_wheel() : false;
+  }
+
+  bool ps2_mouse_has_4th_and_5th_buttons(const ps2_mouse_t *mouse)
+  {
+    return mouse && mouse->impl ? mouse->impl->has_4th_and_5th_buttons() : false;
+  }
+
+  bool ps2_mouse_data_reporting_enabled(const ps2_mouse_t *mouse)
+  {
+    return mouse && mouse->impl ? mouse->impl->data_reporting_enabled() : false;
+  }
+
+  void ps2_mouse_reset_counter(ps2_mouse_t *mouse)
+  {
+    if (mouse && mouse->impl)
+    {
+      mouse->impl->reset_counter();
+    }
+  }
+
+  uint8_t ps2_mouse_get_sample_rate(const ps2_mouse_t *mouse)
+  {
+    return mouse && mouse->impl ? mouse->impl->get_sample_rate() : 0;
+  }
+
+  void ps2_mouse_move(ps2_mouse_t *mouse, int16_t x, int16_t y, int8_t wheel)
+  {
+    if (mouse && mouse->impl)
+    {
+      mouse->impl->move(x, y, wheel);
+    }
+  }
+
+  void ps2_mouse_press(ps2_mouse_t *mouse, ps2_mouse_button_t button)
+  {
+    if (mouse && mouse->impl)
+    {
+      mouse->impl->press(to_mouse_button(button));
+    }
+  }
+
+  void ps2_mouse_release(ps2_mouse_t *mouse, ps2_mouse_button_t button)
+  {
+    if (mouse && mouse->impl)
+    {
+      mouse->impl->release(to_mouse_button(button));
+    }
+  }
+
+  void ps2_mouse_click(ps2_mouse_t *mouse, ps2_mouse_button_t button)
+  {
+    if (mouse && mouse->impl)
+    {
+      mouse->impl->click(to_mouse_button(button));
+    }
+  }
+
+  struct ps2_keyboard_handle
+  {
+    esp32_ps2dev::PS2Keyboard *impl;
+  };
+
+  ps2_keyboard_t *ps2_keyboard_create(int clk, int data)
+  {
+    ps2_keyboard_handle *handle = new ps2_keyboard_handle;
+    handle->impl = new esp32_ps2dev::PS2Keyboard(clk, data);
+    return handle;
+  }
+
+  void ps2_keyboard_destroy(ps2_keyboard_t *keyboard)
+  {
+    if (!keyboard)
+      return;
+    delete keyboard->impl;
+    delete keyboard;
+  }
+
+  void ps2_keyboard_begin(ps2_keyboard_t *keyboard)
+  {
+    if (keyboard && keyboard->impl)
+    {
+      keyboard->impl->begin();
+    }
+  }
+
+  bool ps2_keyboard_data_reporting_enabled(const ps2_keyboard_t *keyboard)
+  {
+    return keyboard && keyboard->impl ? keyboard->impl->data_reporting_enabled() : false;
+  }
+
+  bool ps2_keyboard_is_scroll_lock_on(const ps2_keyboard_t *keyboard)
+  {
+    return keyboard && keyboard->impl ? keyboard->impl->is_scroll_lock_led_on() : false;
+  }
+
+  bool ps2_keyboard_is_num_lock_on(const ps2_keyboard_t *keyboard)
+  {
+    return keyboard && keyboard->impl ? keyboard->impl->is_num_lock_led_on() : false;
+  }
+
+  bool ps2_keyboard_is_caps_lock_on(const ps2_keyboard_t *keyboard)
+  {
+    return keyboard && keyboard->impl ? keyboard->impl->is_caps_lock_led_on() : false;
+  }
+
+  void ps2_keyboard_keydown(ps2_keyboard_t *keyboard, esp32_ps2dev_key_t key)
+  {
+    if (keyboard && keyboard->impl)
+    {
+      keyboard->impl->keydown(static_cast<esp32_ps2dev::scancodes::Key>(key));
+    }
+  }
+
+  void ps2_keyboard_keyup(ps2_keyboard_t *keyboard, esp32_ps2dev_key_t key)
+  {
+    if (keyboard && keyboard->impl)
+    {
+      keyboard->impl->keyup(static_cast<esp32_ps2dev::scancodes::Key>(key));
+    }
+  }
+
+  void ps2_keyboard_type_key(ps2_keyboard_t *keyboard, esp32_ps2dev_key_t key)
+  {
+    if (keyboard && keyboard->impl)
+    {
+      keyboard->impl->type(static_cast<esp32_ps2dev::scancodes::Key>(key));
+    }
+  }
+
+  void ps2_keyboard_type_text(ps2_keyboard_t *keyboard, const char *text)
+  {
+    if (keyboard && keyboard->impl)
+    {
+      keyboard->impl->type(text);
+    }
+  }
+
+  void ps2_keyboard_send_hid_key(ps2_keyboard_t *keyboard, uint8_t bt_key, bool key_down)
+  {
+    if (keyboard && keyboard->impl)
+    {
+      keyboard->impl->keyHid_send(bt_key, key_down);
+    }
+  }
+
+  void ps2_keyboard_send_consumer_key(ps2_keyboard_t *keyboard, uint16_t usage, bool key_down)
+  {
+    if (keyboard && keyboard->impl)
+    {
+      keyboard->impl->keyHid_send_CCONTROL(usage, key_down);
+    }
+  }
+
+  bool ps2_keyboard_allows_typematic(const ps2_keyboard_t *keyboard, uint8_t hid_code)
+  {
+    return keyboard && keyboard->impl ? keyboard->impl->allows_typematic(hid_code) : false;
+  }
+
+  uint16_t ps2_keyboard_get_typematic_delay_ms(const ps2_keyboard_t *keyboard)
+  {
+    return keyboard && keyboard->impl ? keyboard->impl->get_typematic_delay_ms() : 0;
+  }
+
+  uint16_t ps2_keyboard_get_typematic_cycle_ms(const ps2_keyboard_t *keyboard)
+  {
+    return keyboard && keyboard->impl ? keyboard->impl->get_typematic_cycle_ms() : 0;
+  }
+
+  uint8_t ps2_keyboard_get_typematic_config(const ps2_keyboard_t *keyboard)
+  {
+    return keyboard && keyboard->impl ? keyboard->impl->get_typematic_config() : 0;
+  }
+
+  void ps2_keyboard_set_leds_callback(ps2_keyboard_t *keyboard, void (*cb)(uint8_t leds))
+  {
+    if (keyboard && keyboard->impl)
+    {
+      keyboard->impl->set_leds_callback(cb);
+    }
+  }
+
+  void ps2_keyboard_trigger_leds_callback(ps2_keyboard_t *keyboard, uint8_t leds)
+  {
+    if (keyboard && keyboard->impl)
+    {
+      keyboard->impl->trigger_leds_callback(leds);
+    }
+  }
+
+} // extern "C"
