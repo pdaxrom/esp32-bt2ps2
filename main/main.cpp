@@ -15,7 +15,7 @@ Never stop dreaming.
 #include <iostream>
 #include <cmath>
 #include <algorithm>
-#include "bt_keyboard.hpp" // Interface with a BT/BLE peripheral device (Keyboard & Mouse)
+#include "bt_keyboard.h" // Interface with a BT/BLE peripheral device (Keyboard & Mouse)
 #include "esp32-ps2dev.h"  // Emulate a PS/2 device
 
 /////////////////////////////// USER ADJUSTABLE VARIABLES //////////////////////////////////////////////////
@@ -46,7 +46,7 @@ ps2_mouse_t *g_ps2_mouse = nullptr;
 ps2_keyboard_t *g_ps2_keyboard = nullptr;
 
 // BTKeyboard section
-BTKeyboard bt_keyboard;
+bt_keyboard_t *g_bt_keyboard = nullptr;
 
 struct ModifierAction
 {
@@ -70,9 +70,9 @@ template <typename KeyType, typename ReleaseFn>
 void handle_key_releases(const KeyType *previous, const KeyType *current, ReleaseFn releaseFn)
 {
     bool found = false;
-    for (int i = 0; i < BTKeyboard::MAX_KEY_COUNT && previous[i]; i++)
+    for (int i = 0; i < BT_KEYBOARD_MAX_KEY_COUNT && previous[i]; i++)
     {
-        for (int j = 0; j < BTKeyboard::MAX_KEY_COUNT && current[j]; j++)
+        for (int j = 0; j < BT_KEYBOARD_MAX_KEY_COUNT && current[j]; j++)
         {
             if (previous[i] == current[j])
             {
@@ -92,9 +92,9 @@ template <typename KeyType, typename PressFn>
 void handle_key_presses(const KeyType *current, const KeyType *previous, PressFn pressFn)
 {
     bool found = false;
-    for (int i = 0; i < BTKeyboard::MAX_KEY_COUNT && current[i]; i++)
+    for (int i = 0; i < BT_KEYBOARD_MAX_KEY_COUNT && current[i]; i++)
     {
-        for (int j = 0; j < BTKeyboard::MAX_KEY_COUNT && previous[j]; j++)
+        for (int j = 0; j < BT_KEYBOARD_MAX_KEY_COUNT && previous[j]; j++)
         {
             if (current[i] == previous[j])
             {
@@ -140,7 +140,7 @@ void handle_modifier_changes(uint8_t newModifiers, uint8_t oldModifiers)
 
 constexpr uint8_t CAPS_LOCK_HID = 0x39;
 
-void handle_typematic(const BTKeyboard::KeyInfo &infoBuf, int &typematicLeft, int cycle)
+void handle_typematic(const bt_keyboard_key_info_t &infoBuf, int &typematicLeft, int cycle)
 {
     if (!infoBuf.keys[0])
     {
@@ -153,7 +153,7 @@ void handle_typematic(const BTKeyboard::KeyInfo &infoBuf, int &typematicLeft, in
         return;
     }
 
-    for (int i = 1; i < BTKeyboard::MAX_KEY_COUNT; i++)
+    for (int i = 1; i < BT_KEYBOARD_MAX_KEY_COUNT; i++)
     {
     if (infoBuf.keys[i] == 0)
     {
@@ -239,7 +239,7 @@ void pairing_handler(uint32_t pid) // This handler deals with BT Classic's manua
 
 static void IRAM_ATTR pairing_scan(void *arg = NULL)
 {
-    BTKeyboard::set_connected(false);
+    bt_keyboard_set_connected(false);
     pairingRequested = true;
 
     gpio_set_level(GPIO_NUM_2, 0); // Turn off LED for pairing
@@ -252,15 +252,15 @@ static void IRAM_ATTR pairing_scan(void *arg = NULL)
     ESP_LOGI(TAG, "/////////////////// PAIRING ACTIVATED ////////////////////////");
     ESP_LOGI(TAG, "Scanning...");
 
-    while (!BTKeyboard::is_connected() && !pairingAborted)
+    while (!bt_keyboard_is_connected() && !pairingAborted)
     {
-        bt_keyboard.devices_scan();
-        if (BTKeyboard::bt_device_found())
+        bt_keyboard_devices_scan(g_bt_keyboard, 5);
+        if (bt_keyboard_bt_device_found())
         {
-            BTKeyboard::set_bt_device_found(false);
+            bt_keyboard_set_bt_device_found(false);
             for (int i = 0; i < 60; i++)
             {
-                if (BTKeyboard::is_connected())
+                if (bt_keyboard_is_connected())
                     break;
                 ESP_LOGI(TAG, "Waiting for BT Classic manual code entry...");
                 vTaskDelay(1000 / portTICK_PERIOD_MS);
@@ -342,6 +342,13 @@ extern "C"
 
         gpio_set_level(GPIO_NUM_2, 0);
 
+        g_bt_keyboard = bt_keyboard_create();
+        if (!g_bt_keyboard)
+        {
+            ESP_LOGE(TAG, "Failed to allocate BT keyboard instance");
+            esp_restart();
+        }
+
         // init BTKeyboard
         esp_err_t ret;
 
@@ -357,7 +364,7 @@ extern "C"
         }
         ESP_ERROR_CHECK(ret);
 
-        if (bt_keyboard.setup(pairing_handler)) // Must be called once
+        if (bt_keyboard_setup(g_bt_keyboard, pairing_handler)) // Must be called once
         {
             if (pairing_at_startup)
             {
@@ -380,18 +387,18 @@ extern "C"
         uint16_t typematicDelay = ps2_keyboard_get_typematic_delay_ms(g_ps2_keyboard);
         uint16_t typematicCycle = ps2_keyboard_get_typematic_cycle_ms(g_ps2_keyboard);
         TickType_t repeat_period = pdMS_TO_TICKS(std::max<uint16_t>(typematicCycle, 1));
-        BTKeyboard::KeyInfo info;                        // freshly received
-        BTKeyboard::KeyInfo infoBuf;                     // currently pressed
-        BTKeyboard::KeyInfo_CCONTROL infoCCONTROL;       // freshly received multimedia (CCONTROL) keys
-        BTKeyboard::KeyInfo_CCONTROL infoBufCCONTROL;    // currently pressed multimedia (CCONTROL) keys
+        bt_keyboard_key_info_t info;                        // freshly received
+        bt_keyboard_key_info_t infoBuf;                     // currently pressed
+        bt_keyboard_key_info_ccontrol_t infoCCONTROL;       // freshly received multimedia (CCONTROL) keys
+        bt_keyboard_key_info_ccontrol_t infoBufCCONTROL;    // currently pressed multimedia (CCONTROL) keys
         TaskHandle_t mouse_task_handle;                  // mouse uses it's own task. Mouse is important
         TaskHandle_t ble_connection_daemon_handle;       // the BLE daemon constantly scans for BLE previously bonded devices
 
         int typematicLeft = typematicDelay; // timekeeping
 
-        info.modifier = infoBuf.modifier = (BTKeyboard::KeyModifier)0;
+        info.modifier = infoBuf.modifier = (bt_keyboard_key_modifier_t)0;
 
-        for (int j = 0; j < BTKeyboard::MAX_KEY_COUNT; j++)
+        for (int j = 0; j < BT_KEYBOARD_MAX_KEY_COUNT; j++)
         {
             infoBuf.keys[j] = 0;
             info.keys[j] = 0;
@@ -414,7 +421,7 @@ extern "C"
                 typematicLeft = typematicDelay;
             }
 
-            if (bt_keyboard.wait_for_low_event(info, repeat_period))
+            if (bt_keyboard_wait_for_low_event(g_bt_keyboard, &info, repeat_period))
             {
                 if (info.modifier != infoBuf.modifier)
                 {
@@ -475,7 +482,7 @@ extern "C"
 
             ////////////////////// MULTIMEDIA KEYS (CCONTROL HID USAGE CODES) SECTION
 
-            if (bt_keyboard.wait_for_low_event_CCONTROL(infoCCONTROL, repeat_period))
+            if (bt_keyboard_wait_for_low_event_ccontrol(g_bt_keyboard, &infoCCONTROL, repeat_period))
             {
                 auto release_ccontrol = [&](uint16_t key) {
                     ESP_LOGD(TAG, "Up CCONTROL key: %x", key);
@@ -500,12 +507,12 @@ extern "C"
 
 void mouse_task(void *arg)
 {
-    BTKeyboard::Mouse_Control infoMouse;    // freshly received mouse report
-    BTKeyboard::Mouse_Control infoMouseBuf; // currently pressed mouse report
+    bt_keyboard_mouse_control_t infoMouse;    // freshly received mouse report
+    bt_keyboard_mouse_control_t infoMouseBuf; // currently pressed mouse report
 
     while (true)
     {
-        if (!bt_keyboard.wait_for_low_event_MOUSE(infoMouse, portMAX_DELAY))
+        if (!bt_keyboard_wait_for_low_event_mouse(g_bt_keyboard, &infoMouse, portMAX_DELAY))
         {
             continue;
         }
@@ -575,7 +582,7 @@ void ble_connection_daemon(void *arg)
         if (!pairingRequested)
         {
             bleNowScanning = true;
-            bt_keyboard.devices_scan_ble_daemon();
+            bt_keyboard_devices_scan_ble_daemon(g_bt_keyboard, 5);
             ESP_LOGD(TAG, "RAM left %d", esp_get_free_heap_size());
         }
         else
@@ -593,11 +600,11 @@ void set_leds_cb(uint8_t leds)
   uint8_t bt_leds = 0;
 
   if (leds & esp32_ps2dev::PS2Keyboard::KeyLed::KEYBOARD_LED_SCROLLLOCK)
-    bt_leds |= BTKeyboard::KeyLed::KEYBOARD_LED_SCROLLLOCK;
+    bt_leds |= BT_KEYBOARD_LED_SCROLLLOCK;
   if (leds & esp32_ps2dev::PS2Keyboard::KeyLed::KEYBOARD_LED_NUMLOCK)
-    bt_leds |= BTKeyboard::KeyLed::KEYBOARD_LED_NUMLOCK;
+    bt_leds |= BT_KEYBOARD_LED_NUMLOCK;
   if (leds & esp32_ps2dev::PS2Keyboard::KeyLed::KEYBOARD_LED_CAPSLOCK)
-    bt_leds |= BTKeyboard::KeyLed::KEYBOARD_LED_CAPSLOCK;
+    bt_leds |= BT_KEYBOARD_LED_CAPSLOCK;
 
-  bt_keyboard.set_leds(bt_leds);
+  bt_keyboard_set_leds(bt_leds);
 }

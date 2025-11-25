@@ -21,10 +21,11 @@
 // limitations under the License.
 
 #define __BT_KEYBOARD__ 1
-#include "bt_keyboard.hpp"
+#include "bt_keyboard.h"
 
-#include <cstring>
-#include <algorithm>
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
 
 #define SCAN 1
 
@@ -32,22 +33,352 @@
 #define GAP_DBG_PRINTF(...) printf(__VA_ARGS__)
 
 #define SIZEOF_ARRAY(a) (sizeof(a) / sizeof(*a))
+#define UNUSED_ATTR __attribute__((unused))
 
-#define WAIT_BT_CB() xSemaphoreTake(BTKeyboard::state().bt_hidh_cb_semaphore, portMAX_DELAY)
-#define SEND_BT_CB() xSemaphoreGive(BTKeyboard::state().bt_hidh_cb_semaphore)
+#define HIDH_IDLE_MODE ((esp_bt_mode_t)0x00)
+#define HIDH_BLE_MODE ((esp_bt_mode_t)0x01)
+#define HIDH_BT_MODE ((esp_bt_mode_t)0x02)
+#define HIDH_BTDM_MODE ((esp_bt_mode_t)0x03)
 
-#define WAIT_BLE_CB() xSemaphoreTake(BTKeyboard::state().ble_hidh_cb_semaphore, portMAX_DELAY)
-#define SEND_BLE_CB() xSemaphoreGive(BTKeyboard::state().ble_hidh_cb_semaphore)
+#if CONFIG_BT_HID_HOST_ENABLED
+#if CONFIG_BT_BLE_ENABLED
+static const esp_bt_mode_t HID_HOST_MODE = HIDH_BTDM_MODE;
+#else
+static const esp_bt_mode_t HID_HOST_MODE = HIDH_BT_MODE;
+#endif
+#elif CONFIG_BT_BLE_ENABLED
+static const esp_bt_mode_t HID_HOST_MODE = HIDH_BLE_MODE;
+#else
+static const esp_bt_mode_t HID_HOST_MODE = HIDH_IDLE_MODE;
+#endif
 
-#define LED_DEVICE_MAP_LOCK() xSemaphoreTake(BTKeyboard::state().led_device_map_semaphore, portMAX_DELAY)
-#define LED_DEVICE_MAP_UNLOCK() xSemaphoreGive(BTKeyboard::state().led_device_map_semaphore)
+#define WAIT_BT_CB() xSemaphoreTake(bt_keyboard_state()->bt_hidh_cb_semaphore, portMAX_DELAY)
+#define SEND_BT_CB() xSemaphoreGive(bt_keyboard_state()->bt_hidh_cb_semaphore)
 
-const char *BTKeyboard::gap_bt_prop_type_names[] = {"", "BDNAME", "COD", "RSSI", "EIR"};
-const char *BTKeyboard::ble_gap_evt_names[] = {"ADV_DATA_SET_COMPLETE", "SCAN_RSP_DATA_SET_COMPLETE", "SCAN_PARAM_SET_COMPLETE", "SCAN_RESULT", "ADV_DATA_RAW_SET_COMPLETE", "SCAN_RSP_DATA_RAW_SET_COMPLETE", "ADV_START_COMPLETE", "SCAN_START_COMPLETE", "AUTH_CMPL", "KEY", "SEC_REQ", "PASSKEY_NOTIF", "PASSKEY_REQ", "OOB_REQ", "LOCAL_IR", "LOCAL_ER", "NC_REQ", "ADV_STOP_COMPLETE", "SCAN_STOP_COMPLETE", "SET_STATIC_RAND_ADDR", "UPDATE_CONN_PARAMS", "SET_PKT_LENGTH_COMPLETE", "SET_LOCAL_PRIVACY_COMPLETE", "REMOVE_BOND_DEV_COMPLETE", "CLEAR_BOND_DEV_COMPLETE", "GET_BOND_DEV_COMPLETE", "READ_RSSI_COMPLETE", "UPDATE_WHITELIST_COMPLETE"};
-const char *BTKeyboard::bt_gap_evt_names[] = {"DISC_RES", "DISC_STATE_CHANGED", "RMT_SRVCS", "RMT_SRVC_REC", "AUTH_CMPL", "PIN_REQ", "CFM_REQ", "KEY_NOTIF", "KEY_REQ", "READ_RSSI_DELTA"};
-const char *BTKeyboard::ble_addr_type_names[] = {"PUBLIC", "RANDOM", "RPA_PUBLIC", "RPA_RANDOM"};
+#define WAIT_BLE_CB() xSemaphoreTake(bt_keyboard_state()->ble_hidh_cb_semaphore, portMAX_DELAY)
+#define SEND_BLE_CB() xSemaphoreGive(bt_keyboard_state()->ble_hidh_cb_semaphore)
 
-const char BTKeyboard::shift_trans_dict[] =
+#define LED_DEVICE_MAP_LOCK() xSemaphoreTake(bt_keyboard_state()->led_device_map_semaphore, portMAX_DELAY)
+#define LED_DEVICE_MAP_UNLOCK() xSemaphoreGive(bt_keyboard_state()->led_device_map_semaphore)
+
+typedef struct esp_hid_scan_result
+{
+  struct esp_hid_scan_result *next;
+  esp_bd_addr_t bda;
+  const char *name;
+  int8_t rssi;
+  esp_hid_usage_t usage;
+  esp_hid_transport_t transport;
+  union
+  {
+    struct
+    {
+      esp_bt_cod_t cod;
+      esp_bt_uuid_t uuid;
+    } bt;
+    struct
+    {
+      esp_ble_addr_type_t addr_type;
+      uint16_t appearance;
+    } ble;
+  };
+} esp_hid_scan_result_t;
+
+typedef struct esp_hidh_dev_report_s
+{
+  struct esp_hidh_dev_report_s *next;
+  uint8_t map_index;
+  uint8_t report_id;
+  uint8_t report_type;
+  uint8_t protocol_mode;
+  size_t value_len;
+  esp_hid_usage_t usage;
+  uint16_t handle;
+  uint16_t ccc_handle;
+  uint8_t permissions;
+} esp_hidh_dev_report_t;
+
+typedef struct
+{
+  uint16_t usage_page;
+  uint16_t usage;
+  uint16_t inner_usage_page;
+  uint16_t inner_usage;
+  uint8_t report_id;
+  uint16_t input_len;
+  uint16_t output_len;
+  uint16_t feature_len;
+  uint32_t logical_minimum;
+  uint32_t logical_maximum;
+  uint32_t usage_minimum;
+  uint32_t usage_maximum;
+  bool contains_array;
+  uint16_t mouse_x_bit_index;
+  uint16_t mouse_x_lenght;
+  uint16_t mouse_y_bit_index;
+  uint16_t mouse_y_lenght;
+  uint16_t mouse_w_bit_index;
+  uint16_t mouse_w_lenght;
+  uint16_t mouse_buttons_bit_index;
+  uint16_t mouse_buttons_amount;
+} hid_report_params_t;
+
+typedef struct
+{
+  uint8_t report_id;
+  uint16_t input_len;
+  uint32_t logical_minimum;
+  uint32_t logical_maximum;
+  uint32_t usage_minimum;
+  uint32_t usage_maximum;
+  uint16_t report_count;
+  bool contains_array;
+  uint16_t array_usages[BT_KEYBOARD_MAX_MULTIMEDIA_USAGES];
+  size_t array_usages_len;
+  bool array_overflow;
+} hid_report_multimedia_control_t;
+
+typedef struct
+{
+  uint8_t report_id;
+  uint16_t input_len;
+  uint16_t mouse_x_bit_index;
+  uint16_t mouse_x_bit_lenght;
+  uint16_t mouse_y_bit_index;
+  uint16_t mouse_y_bit_lenght;
+  uint16_t mouse_w_bit_index;
+  uint16_t mouse_w_bit_lenght;
+  uint16_t mouse_buttons_bit_index;
+  uint16_t mouse_buttons_amount;
+} hid_report_mouse_t;
+
+typedef enum
+{
+  PARSE_WAIT_USAGE_PAGE,
+  PARSE_WAIT_USAGE,
+  PARSE_WAIT_COLLECTION_APPLICATION,
+  PARSE_WAIT_END_COLLECTION
+} parse_step_t;
+
+typedef struct
+{
+  bool in_use;
+  esp_hidh_dev_t *dev;
+  uint16_t report_id;
+  hid_report_multimedia_control_t report;
+} multimedia_report_entry_t;
+
+typedef struct
+{
+  bool in_use;
+  esp_hidh_dev_t *dev;
+  uint16_t report_id;
+  hid_report_mouse_t report;
+} mouse_report_entry_t;
+
+typedef struct
+{
+  bool in_use;
+  esp_bd_addr_t bda;
+  esp_hidh_dev_t *dev;
+  size_t map_index;
+  size_t report_id;
+} led_device_entry_t;
+
+typedef struct
+{
+  size_t len;
+  uint16_t values[BT_KEYBOARD_MAX_TEMP_USAGE_VALUES];
+} temp_usage_buffer_t;
+
+typedef struct
+{
+  size_t len;
+  uint16_t values[BT_KEYBOARD_MAX_MULTIMEDIA_KEYS];
+} multimedia_usage_buffer_t;
+
+typedef struct
+{
+  uint8_t cmd;
+  uint8_t len;
+  union
+  {
+    uint32_t value;
+    uint8_t data[4];
+  };
+} hid_report_cmd_t;
+
+typedef struct
+{
+  bool is_connected;
+  bool bt_found;
+  esp_hid_scan_result_t last_connected;
+  multimedia_report_entry_t multimedia_reports[BT_KEYBOARD_MAX_MULTIMEDIA_REPORTS];
+  mouse_report_entry_t mouse_reports[BT_KEYBOARD_MAX_MOUSE_REPORTS];
+  led_device_entry_t led_devices[BT_KEYBOARD_MAX_LED_DEVICES];
+  parse_step_t parse_step;
+  uint8_t collection_depth;
+  hid_report_params_t report_params;
+  hid_report_params_t report_params_empty;
+  uint16_t report_size;
+  uint16_t report_count;
+  int usages_count;
+  temp_usage_buffer_t temp_usages;
+  multimedia_usage_buffer_t multimedia_keys;
+  SemaphoreHandle_t bt_hidh_cb_semaphore;
+  SemaphoreHandle_t ble_hidh_cb_semaphore;
+  SemaphoreHandle_t led_device_map_semaphore;
+} bt_keyboard_state_t;
+
+struct bt_keyboard
+{
+  esp_hid_scan_result_t *bt_scan_results;
+  esp_hid_scan_result_t *ble_scan_results;
+  size_t num_bt_scan_results;
+  size_t num_ble_scan_results;
+  QueueHandle_t event_queue;
+  QueueHandle_t event_queue_CCONTROL;
+  QueueHandle_t event_queue_MOUSE;
+  int8_t battery_level;
+  bool key_avail[BT_KEYBOARD_MAX_KEY_COUNT];
+  char last_ch;
+  TickType_t repeat_period;
+  bt_keyboard_pid_handler_t pairing_handler;
+  bool caps_lock;
+};
+
+static void bt_keyboard_scan_results_free(esp_hid_scan_result_t *results);
+static int16_t getBits(const void *Data, uint16_t StartBit, uint16_t NumBits);
+static void mouse_handle(uint8_t *report_data, hid_report_mouse_t *report_info);
+static void push_key(uint8_t *keys, uint8_t size);
+static void push_key_CCONTROL(uint16_t *keys, uint8_t size);
+static esp_err_t hid_report_parse_multimedia_keys(const uint8_t *hid_rm, size_t hid_rm_len, esp_hidh_dev_t *device);
+static int parse_cmd(const uint8_t *data, size_t len, size_t index, hid_report_cmd_t **out);
+static int handle_cmd(hid_report_cmd_t *cmd, esp_hidh_dev_t *device);
+static int handle_report(hid_report_params_t *report, esp_hidh_dev_t *device);
+static void bt_gap_event_handler(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *param);
+static void ble_gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param);
+static void hidh_callback(void *handler_args, esp_event_base_t base, int32_t id, void *event_data);
+
+static bt_keyboard_state_t s_state;
+static bt_keyboard_t *s_keyboard = NULL;
+static const char *TAG = "BTKeyboard";
+
+static inline bt_keyboard_state_t *bt_keyboard_state(void)
+{
+  return &s_state;
+}
+
+bt_keyboard_t *bt_keyboard_create(void)
+{
+  bt_keyboard_t *keyboard = (bt_keyboard_t *)calloc(1, sizeof(bt_keyboard_t));
+  if (keyboard)
+  {
+    keyboard->battery_level = -1;
+  }
+  return keyboard;
+}
+
+void bt_keyboard_destroy(bt_keyboard_t *keyboard)
+{
+  if (!keyboard)
+  {
+    return;
+  }
+
+  if (keyboard->event_queue)
+    vQueueDelete(keyboard->event_queue);
+  if (keyboard->event_queue_CCONTROL)
+    vQueueDelete(keyboard->event_queue_CCONTROL);
+  if (keyboard->event_queue_MOUSE)
+    vQueueDelete(keyboard->event_queue_MOUSE);
+
+  if (keyboard->bt_scan_results)
+    bt_keyboard_scan_results_free(keyboard->bt_scan_results);
+  if (keyboard->ble_scan_results)
+    bt_keyboard_scan_results_free(keyboard->ble_scan_results);
+
+  if (s_keyboard == keyboard)
+  {
+    s_keyboard = NULL;
+  }
+
+  free(keyboard);
+}
+
+uint8_t bt_keyboard_get_battery_level(bt_keyboard_t *keyboard)
+{
+  if (!keyboard)
+  {
+    return 0;
+  }
+  return keyboard->battery_level;
+}
+
+bool bt_keyboard_wait_for_low_event(bt_keyboard_t *keyboard, bt_keyboard_key_info_t *info, TickType_t duration)
+{
+  if (!keyboard || !info)
+  {
+    return false;
+  }
+  return xQueueReceive(keyboard->event_queue, info, duration) == pdTRUE;
+}
+
+bool bt_keyboard_wait_for_low_event_ccontrol(bt_keyboard_t *keyboard, bt_keyboard_key_info_ccontrol_t *info, TickType_t duration)
+{
+  if (!keyboard || !info)
+  {
+    return false;
+  }
+  return xQueueReceive(keyboard->event_queue_CCONTROL, info, duration) == pdTRUE;
+}
+
+bool bt_keyboard_wait_for_low_event_mouse(bt_keyboard_t *keyboard, bt_keyboard_mouse_control_t *info, TickType_t duration)
+{
+  if (!keyboard || !info)
+  {
+    return false;
+  }
+  return xQueueReceive(keyboard->event_queue_MOUSE, info, duration) == pdTRUE;
+}
+
+static inline void temp_usage_clear(temp_usage_buffer_t *buffer)
+{
+  buffer->len = 0;
+}
+
+static inline bool temp_usage_push(temp_usage_buffer_t *buffer, uint16_t value)
+{
+  if (buffer->len >= BT_KEYBOARD_MAX_TEMP_USAGE_VALUES)
+  {
+    return false;
+  }
+  buffer->values[buffer->len++] = value;
+  return true;
+}
+
+static inline void multimedia_usage_clear(multimedia_usage_buffer_t *buffer)
+{
+  buffer->len = 0;
+}
+
+static inline bool multimedia_usage_push(multimedia_usage_buffer_t *buffer, uint16_t value)
+{
+  if (buffer->len >= BT_KEYBOARD_MAX_MULTIMEDIA_KEYS)
+  {
+    return false;
+  }
+  buffer->values[buffer->len++] = value;
+  return true;
+}
+
+
+static const char *gap_bt_prop_type_names[] = {"", "BDNAME", "COD", "RSSI", "EIR"};
+static const char *ble_gap_evt_names[] = {"ADV_DATA_SET_COMPLETE", "SCAN_RSP_DATA_SET_COMPLETE", "SCAN_PARAM_SET_COMPLETE", "SCAN_RESULT", "ADV_DATA_RAW_SET_COMPLETE", "SCAN_RSP_DATA_RAW_SET_COMPLETE", "ADV_START_COMPLETE", "SCAN_START_COMPLETE", "AUTH_CMPL", "KEY", "SEC_REQ", "PASSKEY_NOTIF", "PASSKEY_REQ", "OOB_REQ", "LOCAL_IR", "LOCAL_ER", "NC_REQ", "ADV_STOP_COMPLETE", "SCAN_STOP_COMPLETE", "SET_STATIC_RAND_ADDR", "UPDATE_CONN_PARAMS", "SET_PKT_LENGTH_COMPLETE", "SET_LOCAL_PRIVACY_COMPLETE", "REMOVE_BOND_DEV_COMPLETE", "CLEAR_BOND_DEV_COMPLETE", "GET_BOND_DEV_COMPLETE", "READ_RSSI_COMPLETE", "UPDATE_WHITELIST_COMPLETE"};
+static const char *bt_gap_evt_names[] = {"DISC_RES", "DISC_STATE_CHANGED", "RMT_SRVCS", "RMT_SRVC_REC", "AUTH_CMPL", "PIN_REQ", "CFM_REQ", "KEY_NOTIF", "KEY_REQ", "READ_RSSI_DELTA"};
+static const char *ble_addr_type_names[] = {"PUBLIC", "RANDOM", "RPA_PUBLIC", "RPA_RANDOM"};
+
+static const char shift_trans_dict[] =
     "aAbBcCdDeEfFgGhHiIjJkKlLmMnNoOpPqQrRsStTuUvVwWxXyYzZ1!2@3#4$5%6^7&8*9(0)"
     "\r\r\033\033\b\b\t\t  -_=+[{]}\\|??;:'\"`~,<.>/?"
     "\200\200"                                          // CAPS LOC
@@ -57,75 +388,70 @@ const char BTKeyboard::shift_trans_dict[] =
     "\220\220\221\221\222\222\177\177"                  // Insert Home PageUp Delete
     "\223\223\224\224\225\225\226\226\227\227\230\230"; // End PageDown Right Left Dow Up
 
-static BTKeyboard *bt_keyboard = nullptr;
-BTKeyboard::State BTKeyboard::s_state{};
-
-BTKeyboard::State &BTKeyboard::state()
+bool bt_keyboard_is_connected(void)
 {
-  return s_state;
+  return bt_keyboard_state()->is_connected;
 }
 
-bool BTKeyboard::is_connected()
+void bt_keyboard_set_connected(bool value)
 {
-  return state().is_connected;
+  bt_keyboard_state()->is_connected = value;
 }
 
-void BTKeyboard::set_connected(bool value)
+bool bt_keyboard_bt_device_found(void)
 {
-  state().is_connected = value;
+  return bt_keyboard_state()->bt_found;
 }
 
-bool BTKeyboard::bt_device_found()
+void bt_keyboard_set_bt_device_found(bool value)
 {
-  return state().bt_found;
+  bt_keyboard_state()->bt_found = value;
 }
 
-void BTKeyboard::set_bt_device_found(bool value)
+static hid_report_multimedia_control_t *find_multimedia_report(esp_hidh_dev_t *dev, uint16_t report_id)
 {
-  state().bt_found = value;
-}
-
-BTKeyboard::hid_report_multimedia_control *BTKeyboard::find_multimedia_report(esp_hidh_dev_t *dev, uint16_t report_id)
-{
-  for (auto &entry : state().multimedia_reports)
+  for (size_t i = 0; i < BT_KEYBOARD_MAX_MULTIMEDIA_REPORTS; ++i)
   {
-    if (entry.in_use && entry.dev == dev && entry.report_id == report_id)
+    multimedia_report_entry_t *entry = &bt_keyboard_state()->multimedia_reports[i];
+    if (entry->in_use && entry->dev == dev && entry->report_id == report_id)
     {
-      return &entry.report;
+      return &entry->report;
     }
   }
-  return nullptr;
+  return NULL;
 }
 
-BTKeyboard::hid_report_multimedia_control *BTKeyboard::ensure_multimedia_report(esp_hidh_dev_t *dev, uint16_t report_id)
+static hid_report_multimedia_control_t *ensure_multimedia_report(esp_hidh_dev_t *dev, uint16_t report_id)
 {
-  if (auto *existing = find_multimedia_report(dev, report_id))
+  hid_report_multimedia_control_t *existing = find_multimedia_report(dev, report_id);
+  if (existing != NULL)
   {
     return existing;
   }
 
-  for (auto &entry : state().multimedia_reports)
+  for (size_t i = 0; i < BT_KEYBOARD_MAX_MULTIMEDIA_REPORTS; ++i)
   {
-    if (!entry.in_use)
+    multimedia_report_entry_t *entry = &bt_keyboard_state()->multimedia_reports[i];
+    if (!entry->in_use)
     {
-      entry.in_use = true;
-      entry.dev = dev;
-      entry.report_id = report_id;
-      entry.report = hid_report_multimedia_control();
-      return &entry.report;
+      entry->in_use = true;
+      entry->dev = dev;
+      entry->report_id = report_id;
+      memset(&entry->report, 0, sizeof(entry->report));
+      return &entry->report;
     }
   }
 
   ESP_LOGE(TAG, "No space left for multimedia report dev=%p id=%u", dev, report_id);
-  return nullptr;
+  return NULL;
 }
 
-size_t BTKeyboard::multimedia_report_count()
+static size_t multimedia_report_count(void)
 {
   size_t count = 0;
-  for (const auto &entry : state().multimedia_reports)
+  for (size_t i = 0; i < BT_KEYBOARD_MAX_MULTIMEDIA_REPORTS; ++i)
   {
-    if (entry.in_use)
+    if (bt_keyboard_state()->multimedia_reports[i].in_use)
     {
       ++count;
     }
@@ -133,47 +459,50 @@ size_t BTKeyboard::multimedia_report_count()
   return count;
 }
 
-BTKeyboard::hid_report_mouse *BTKeyboard::find_mouse_report(esp_hidh_dev_t *dev, uint16_t report_id)
+static hid_report_mouse_t *find_mouse_report(esp_hidh_dev_t *dev, uint16_t report_id)
 {
-  for (auto &entry : state().mouse_reports)
+  for (size_t i = 0; i < BT_KEYBOARD_MAX_MOUSE_REPORTS; ++i)
   {
-    if (entry.in_use && entry.dev == dev && entry.report_id == report_id)
+    mouse_report_entry_t *entry = &bt_keyboard_state()->mouse_reports[i];
+    if (entry->in_use && entry->dev == dev && entry->report_id == report_id)
     {
-      return &entry.report;
+      return &entry->report;
     }
   }
-  return nullptr;
+  return NULL;
 }
 
-BTKeyboard::hid_report_mouse *BTKeyboard::ensure_mouse_report(esp_hidh_dev_t *dev, uint16_t report_id)
+static hid_report_mouse_t *ensure_mouse_report(esp_hidh_dev_t *dev, uint16_t report_id)
 {
-  if (auto *existing = find_mouse_report(dev, report_id))
+  hid_report_mouse_t *existing = find_mouse_report(dev, report_id);
+  if (existing != NULL)
   {
     return existing;
   }
 
-  for (auto &entry : state().mouse_reports)
+  for (size_t i = 0; i < BT_KEYBOARD_MAX_MOUSE_REPORTS; ++i)
   {
-    if (!entry.in_use)
+    mouse_report_entry_t *entry = &bt_keyboard_state()->mouse_reports[i];
+    if (!entry->in_use)
     {
-      entry.in_use = true;
-      entry.dev = dev;
-      entry.report_id = report_id;
-      entry.report = hid_report_mouse();
-      return &entry.report;
+      entry->in_use = true;
+      entry->dev = dev;
+      entry->report_id = report_id;
+      memset(&entry->report, 0, sizeof(entry->report));
+      return &entry->report;
     }
   }
 
   ESP_LOGE(TAG, "No space left for mouse report dev=%p id=%u", dev, report_id);
-  return nullptr;
+  return NULL;
 }
 
-size_t BTKeyboard::mouse_report_count()
+static size_t mouse_report_count(void)
 {
   size_t count = 0;
-  for (const auto &entry : state().mouse_reports)
+  for (size_t i = 0; i < BT_KEYBOARD_MAX_MOUSE_REPORTS; ++i)
   {
-    if (entry.in_use)
+    if (bt_keyboard_state()->mouse_reports[i].in_use)
     {
       ++count;
     }
@@ -181,62 +510,65 @@ size_t BTKeyboard::mouse_report_count()
   return count;
 }
 
-BTKeyboard::LedDeviceEntry *BTKeyboard::find_led_device_by_bda(const uint8_t *bda)
+static led_device_entry_t *find_led_device_by_bda(const uint8_t *bda)
 {
-  for (auto &entry : state().led_devices)
+  for (size_t i = 0; i < BT_KEYBOARD_MAX_LED_DEVICES; ++i)
   {
-    if (entry.in_use && memcmp(entry.bda, bda, ESP_BD_ADDR_LEN) == 0)
+    led_device_entry_t *entry = &bt_keyboard_state()->led_devices[i];
+    if (entry->in_use && memcmp(entry->bda, bda, ESP_BD_ADDR_LEN) == 0)
     {
-      return &entry;
+      return entry;
     }
   }
-  return nullptr;
+  return NULL;
 }
 
-BTKeyboard::LedDeviceEntry *BTKeyboard::allocate_led_device(const uint8_t *bda)
+static led_device_entry_t *allocate_led_device(const uint8_t *bda)
 {
-  for (auto &entry : state().led_devices)
+  for (size_t i = 0; i < BT_KEYBOARD_MAX_LED_DEVICES; ++i)
   {
-    if (!entry.in_use)
+    led_device_entry_t *entry = &bt_keyboard_state()->led_devices[i];
+    if (!entry->in_use)
     {
-      entry.in_use = true;
-      memcpy(entry.bda, bda, ESP_BD_ADDR_LEN);
-      entry.dev = nullptr;
-      entry.map_index = 0;
-      entry.report_id = 0;
-      return &entry;
+      entry->in_use = true;
+      memcpy(entry->bda, bda, ESP_BD_ADDR_LEN);
+      entry->dev = NULL;
+      entry->map_index = 0;
+      entry->report_id = 0;
+      return entry;
     }
   }
   ESP_LOGE(TAG, "No space left for LED device entry");
-  return nullptr;
+  return NULL;
 }
 
-BTKeyboard::LedDeviceEntry *BTKeyboard::find_led_device_by_dev(esp_hidh_dev_t *dev)
+static UNUSED_ATTR led_device_entry_t *find_led_device_by_dev(esp_hidh_dev_t *dev)
 {
-  for (auto &entry : state().led_devices)
+  for (size_t i = 0; i < BT_KEYBOARD_MAX_LED_DEVICES; ++i)
   {
-    if (entry.in_use && entry.dev == dev)
+    led_device_entry_t *entry = &bt_keyboard_state()->led_devices[i];
+    if (entry->in_use && entry->dev == dev)
     {
-      return &entry;
+      return entry;
     }
   }
-  return nullptr;
+  return NULL;
 }
 
-void BTKeyboard::remove_led_devices_for_dev(esp_hidh_dev_t *dev)
+static void remove_led_devices_for_dev(esp_hidh_dev_t *dev)
 {
-  for (auto &entry : state().led_devices)
+  for (size_t i = 0; i < BT_KEYBOARD_MAX_LED_DEVICES; ++i)
   {
-    if (entry.in_use && entry.dev == dev)
+    led_device_entry_t *entry = &bt_keyboard_state()->led_devices[i];
+    if (entry->in_use && entry->dev == dev)
     {
-      entry.in_use = false;
-      entry.dev = nullptr;
+      entry->in_use = false;
+      entry->dev = NULL;
     }
   }
 }
 
-const char *
-BTKeyboard::ble_addr_type_str(esp_ble_addr_type_t ble_addr_type)
+static const char *ble_addr_type_str(esp_ble_addr_type_t ble_addr_type)
 {
   if (ble_addr_type > BLE_ADDR_TYPE_RPA_RANDOM)
   {
@@ -245,8 +577,7 @@ BTKeyboard::ble_addr_type_str(esp_ble_addr_type_t ble_addr_type)
   return ble_addr_type_names[ble_addr_type];
 }
 
-const char *
-BTKeyboard::ble_gap_evt_str(uint8_t event)
+static const char *ble_gap_evt_str(uint8_t event)
 {
   if (event >= SIZEOF_ARRAY(ble_gap_evt_names))
   {
@@ -255,8 +586,7 @@ BTKeyboard::ble_gap_evt_str(uint8_t event)
   return ble_gap_evt_names[event];
 }
 
-const char *
-BTKeyboard::bt_gap_evt_str(uint8_t event)
+static const char *bt_gap_evt_str(uint8_t event)
 {
   if (event >= SIZEOF_ARRAY(bt_gap_evt_names))
   {
@@ -265,10 +595,9 @@ BTKeyboard::bt_gap_evt_str(uint8_t event)
   return bt_gap_evt_names[event];
 }
 
-const char *
-BTKeyboard::ble_key_type_str(esp_ble_key_type_t key_type)
+static const char *ble_key_type_str(esp_ble_key_type_t key_type)
 {
-  const char *key_str = nullptr;
+  const char *key_str = NULL;
   switch (key_type)
   {
   case ESP_LE_KEY_NONE:
@@ -306,7 +635,7 @@ BTKeyboard::ble_key_type_str(esp_ble_key_type_t key_type)
   return key_str;
 }
 
-void BTKeyboard::print_uuid(esp_bt_uuid_t *uuid)
+static void print_uuid(esp_bt_uuid_t *uuid)
 {
   if (uuid->len == ESP_UUID_LEN_16)
   {
@@ -328,14 +657,14 @@ void BTKeyboard::print_uuid(esp_bt_uuid_t *uuid)
   }
 }
 
-void BTKeyboard::esp_hid_scan_results_free(esp_hid_scan_result_t *results)
+static UNUSED_ATTR void bt_keyboard_scan_results_free(esp_hid_scan_result_t *results)
 {
-  esp_hid_scan_result_t *r = nullptr;
+  esp_hid_scan_result_t *r = NULL;
   while (results)
   {
     r = results;
     results = results->next;
-    if (r->name != nullptr)
+    if (r->name != NULL)
     {
       free((char *)r->name);
     }
@@ -343,8 +672,7 @@ void BTKeyboard::esp_hid_scan_results_free(esp_hid_scan_result_t *results)
   }
 }
 
-BTKeyboard::esp_hid_scan_result_t *
-BTKeyboard::find_scan_result(esp_bd_addr_t bda, esp_hid_scan_result_t *results)
+static esp_hid_scan_result_t *find_scan_result(esp_bd_addr_t bda, esp_hid_scan_result_t *results)
 {
   esp_hid_scan_result_t *r = results;
   while (r)
@@ -355,7 +683,7 @@ BTKeyboard::find_scan_result(esp_bd_addr_t bda, esp_hid_scan_result_t *results)
     }
     r = r->next;
   }
-  return nullptr;
+  return NULL;
 }
 
 static bool is_bonded_device(const esp_bd_addr_t bda, const esp_ble_bond_dev_t *dev_list, int numBonded)
@@ -370,21 +698,26 @@ static bool is_bonded_device(const esp_bd_addr_t bda, const esp_ble_bond_dev_t *
   return false;
 }
 
-void BTKeyboard::add_bt_scan_result(esp_bd_addr_t bda,
-                                    esp_bt_cod_t *cod,
-                                    esp_bt_uuid_t *uuid,
-                                    uint8_t *name,
-                                    uint8_t name_len,
-                                    int rssi)
+static void add_bt_scan_result(esp_bd_addr_t bda,
+                               esp_bt_cod_t *cod,
+                               esp_bt_uuid_t *uuid,
+                               uint8_t *name,
+                               uint8_t name_len,
+                               int rssi)
 {
-  esp_hid_scan_result_t *r = find_scan_result(bda, bt_scan_results);
+  if (!s_keyboard)
+  {
+    return;
+  }
+
+  esp_hid_scan_result_t *r = find_scan_result(bda, s_keyboard->bt_scan_results);
   if (r)
   {
     // Some info may come later
-    if (r->name == nullptr && name && name_len)
+    if (r->name == NULL && name && name_len)
     {
       char *name_s = (char *)malloc(name_len + 1);
-      if (name_s == nullptr)
+      if (name_s == NULL)
       {
         ESP_LOGE(TAG, "Malloc result name failed!");
         return;
@@ -406,7 +739,7 @@ void BTKeyboard::add_bt_scan_result(esp_bd_addr_t bda,
 
   r = (esp_hid_scan_result_t *)malloc(sizeof(esp_hid_scan_result_t));
 
-  if (r == nullptr)
+  if (r == NULL)
   {
     ESP_LOGE(TAG, "Malloc bt_hidh_scan_result_t failed!");
     return;
@@ -420,12 +753,12 @@ void BTKeyboard::add_bt_scan_result(esp_bd_addr_t bda,
 
   r->usage = esp_hid_usage_from_cod((uint32_t)cod);
   r->rssi = rssi;
-  r->name = nullptr;
+  r->name = NULL;
 
   if (name_len && name)
   {
     char *name_s = (char *)malloc(name_len + 1);
-    if (name_s == nullptr)
+    if (name_s == NULL)
     {
       free(r);
       ESP_LOGE(TAG, "Malloc result name failed!");
@@ -435,19 +768,24 @@ void BTKeyboard::add_bt_scan_result(esp_bd_addr_t bda,
     name_s[name_len] = 0;
     r->name = (const char *)name_s;
   }
-  r->next = bt_scan_results;
-  bt_scan_results = r;
-  num_bt_scan_results++;
+  r->next = s_keyboard->bt_scan_results;
+  s_keyboard->bt_scan_results = r;
+  s_keyboard->num_bt_scan_results++;
 }
 
-void BTKeyboard::add_ble_scan_result(esp_bd_addr_t bda,
-                                     esp_ble_addr_type_t addr_type,
-                                     uint16_t appearance,
-                                     uint8_t *name,
-                                     uint8_t name_len,
-                                     int rssi)
+static void add_ble_scan_result(esp_bd_addr_t bda,
+                                esp_ble_addr_type_t addr_type,
+                                uint16_t appearance,
+                                uint8_t *name,
+                                uint8_t name_len,
+                                int rssi)
 {
-  if (find_scan_result(bda, ble_scan_results))
+  if (!s_keyboard)
+  {
+    return;
+  }
+
+  if (find_scan_result(bda, s_keyboard->ble_scan_results))
   {
     ESP_LOGW(TAG, "Result already exists!");
     return;
@@ -455,7 +793,7 @@ void BTKeyboard::add_ble_scan_result(esp_bd_addr_t bda,
 
   esp_hid_scan_result_t *r = (esp_hid_scan_result_t *)malloc(sizeof(esp_hid_scan_result_t));
 
-  if (r == nullptr)
+  if (r == NULL)
   {
     ESP_LOGE(TAG, "Malloc ble_hidh_scan_result_t failed!");
     return;
@@ -469,12 +807,12 @@ void BTKeyboard::add_ble_scan_result(esp_bd_addr_t bda,
   r->ble.addr_type = addr_type;
   r->usage = esp_hid_usage_from_appearance(appearance);
   r->rssi = rssi;
-  r->name = nullptr;
+  r->name = NULL;
 
   if (name_len && name)
   {
     char *name_s = (char *)malloc(name_len + 1);
-    if (name_s == nullptr)
+    if (name_s == NULL)
     {
       free(r);
       ESP_LOGE(TAG, "Malloc result name failed!");
@@ -485,36 +823,37 @@ void BTKeyboard::add_ble_scan_result(esp_bd_addr_t bda,
     r->name = (const char *)name_s;
   }
 
-  r->next = ble_scan_results;
-  ble_scan_results = r;
-  num_ble_scan_results++;
+  r->next = s_keyboard->ble_scan_results;
+  s_keyboard->ble_scan_results = r;
+  s_keyboard->num_ble_scan_results++;
 }
 
-bool BTKeyboard::setup(pid_handler *handler)
+bool bt_keyboard_setup(bt_keyboard_t *keyboard, bt_keyboard_pid_handler_t handler)
 {
   esp_err_t ret;
   const esp_bt_mode_t mode = HID_HOST_MODE;
 
-  BTKeyboard::state().parse_step = PARSE_WAIT_USAGE_PAGE;
-  BTKeyboard::state().collection_depth = 0;
-  BTKeyboard::state().report_params = BTKeyboard::state().report_params_empty;
-  BTKeyboard::state().report_size = 0;
-  BTKeyboard::state().report_count = 0;
-  BTKeyboard::state().usages_count = 0;
-  BTKeyboard::state().temp_usages.clear();
+  bt_keyboard_state()->parse_step = PARSE_WAIT_USAGE_PAGE;
+  bt_keyboard_state()->collection_depth = 0;
+  bt_keyboard_state()->report_params = bt_keyboard_state()->report_params_empty;
+  bt_keyboard_state()->report_size = 0;
+  bt_keyboard_state()->report_count = 0;
+  bt_keyboard_state()->usages_count = 0;
+  temp_usage_clear(&bt_keyboard_state()->temp_usages);
+  multimedia_usage_clear(&bt_keyboard_state()->multimedia_keys);
 
-  if (bt_keyboard != nullptr)
+  if (s_keyboard != NULL)
   {
-    ESP_LOGE(TAG, "Setup called more than once. Only one instance of BTKeyboard is allowed.");
+    ESP_LOGE(TAG, "Setup called more than once. Only one instance of BT keyboard is allowed.");
     return false;
   }
 
-  bt_keyboard = this;
+  s_keyboard = keyboard;
 
-  pairing_handler = handler;
-  event_queue = xQueueCreate(10, sizeof(KeyInfo));
-  event_queue_CCONTROL = xQueueCreate(10, sizeof(KeyInfo_CCONTROL));
-  event_queue_MOUSE = xQueueCreate(10, sizeof(Mouse_Control));
+  keyboard->pairing_handler = handler;
+  keyboard->event_queue = xQueueCreate(10, sizeof(bt_keyboard_key_info_t));
+  keyboard->event_queue_CCONTROL = xQueueCreate(10, sizeof(bt_keyboard_key_info_ccontrol_t));
+  keyboard->event_queue_MOUSE = xQueueCreate(10, sizeof(bt_keyboard_mouse_control_t));
 
   if (HID_HOST_MODE == HIDH_IDLE_MODE)
   {
@@ -522,30 +861,30 @@ bool BTKeyboard::setup(pid_handler *handler)
     return false;
   }
 
-  state().bt_hidh_cb_semaphore = xSemaphoreCreateBinary();
-  if (state().bt_hidh_cb_semaphore == nullptr)
+  bt_keyboard_state()->bt_hidh_cb_semaphore = xSemaphoreCreateBinary();
+  if (bt_keyboard_state()->bt_hidh_cb_semaphore == NULL)
   {
     ESP_LOGE(TAG, "xSemaphoreCreateMutex failed!");
     return false;
   }
 
-  state().ble_hidh_cb_semaphore = xSemaphoreCreateBinary();
-  if (state().ble_hidh_cb_semaphore == nullptr)
+  bt_keyboard_state()->ble_hidh_cb_semaphore = xSemaphoreCreateBinary();
+  if (bt_keyboard_state()->ble_hidh_cb_semaphore == NULL)
   {
     ESP_LOGE(TAG, "xSemaphoreCreateMutex failed!");
-    vSemaphoreDelete(state().bt_hidh_cb_semaphore);
-    state().bt_hidh_cb_semaphore = nullptr;
+    vSemaphoreDelete(bt_keyboard_state()->bt_hidh_cb_semaphore);
+    bt_keyboard_state()->bt_hidh_cb_semaphore = NULL;
     return false;
   }
 
-  state().led_device_map_semaphore = xSemaphoreCreateMutex();
-  if (state().led_device_map_semaphore == nullptr)
+  bt_keyboard_state()->led_device_map_semaphore = xSemaphoreCreateMutex();
+  if (bt_keyboard_state()->led_device_map_semaphore == NULL)
   {
     ESP_LOGE(TAG, "xSemaphoreCreateMutex failed!");
-    vSemaphoreDelete(state().bt_hidh_cb_semaphore);
-    vSemaphoreDelete(state().ble_hidh_cb_semaphore);
-    state().bt_hidh_cb_semaphore = nullptr;
-    state().ble_hidh_cb_semaphore = nullptr;
+    vSemaphoreDelete(bt_keyboard_state()->bt_hidh_cb_semaphore);
+    vSemaphoreDelete(bt_keyboard_state()->ble_hidh_cb_semaphore);
+    bt_keyboard_state()->bt_hidh_cb_semaphore = NULL;
+    bt_keyboard_state()->ble_hidh_cb_semaphore = NULL;
     return false;
   }
 
@@ -622,7 +961,7 @@ bool BTKeyboard::setup(pid_handler *handler)
   esp_hidh_config_t config = {
       .callback = hidh_callback,
       .event_stack_size = 4 * 1024, // Required with ESP-IDF 4.4
-      .callback_arg = nullptr       // idem
+      .callback_arg = NULL       // idem
   };
   ESP_ERROR_CHECK(esp_hidh_init(&config));
 
@@ -649,13 +988,13 @@ bool BTKeyboard::setup(pid_handler *handler)
   if (esp_ble_gap_set_security_param(ESP_BLE_SM_SET_RSP_KEY, &rsp_key, sizeof(uint8_t)) != ESP_OK)
     ESP_LOGE(TAG, "esp_ble_gap_set_security_param() failed on setting param: rsp_key");
 
-  for (int i = 0; i < MAX_KEY_COUNT; i++)
+  for (int i = 0; i < BT_KEYBOARD_MAX_KEY_COUNT; i++)
   {
-    key_avail[i] = true;
+    keyboard->key_avail[i] = true;
   }
 
-  last_ch = 0;
-  battery_level = -1;
+  keyboard->last_ch = 0;
+  keyboard->battery_level = -1;
 
   esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_DEFAULT, ESP_PWR_LVL_P9);
   esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_ADV, ESP_PWR_LVL_P9);
@@ -668,14 +1007,14 @@ bool BTKeyboard::setup(pid_handler *handler)
   return true;
 }
 
-void BTKeyboard::handle_bt_device_result(esp_bt_gap_cb_param_t *param)
+static void handle_bt_device_result(esp_bt_gap_cb_param_t *param)
 {
   GAP_DBG_PRINTF("BT : " ESP_BD_ADDR_STR, ESP_BD_ADDR_HEX(param->disc_res.bda));
 
   uint32_t codv = 0;
   esp_bt_cod_t *cod = (esp_bt_cod_t *)&codv;
   int8_t rssi = 0;
-  uint8_t *name = nullptr;
+  uint8_t *name = NULL;
   uint8_t name_len = 0;
   esp_bt_uuid_t uuid;
 
@@ -712,7 +1051,7 @@ void BTKeyboard::handle_bt_device_result(esp_bt_gap_cb_param_t *param)
 
       data = esp_bt_gap_resolve_eir_data((uint8_t *)prop->val, ESP_BT_EIR_TYPE_CMPL_16BITS_UUID, &len);
 
-      if (data == nullptr)
+      if (data == NULL)
       {
         data = esp_bt_gap_resolve_eir_data((uint8_t *)prop->val, ESP_BT_EIR_TYPE_INCMPL_16BITS_UUID, &len);
       }
@@ -728,7 +1067,7 @@ void BTKeyboard::handle_bt_device_result(esp_bt_gap_cb_param_t *param)
 
       data = esp_bt_gap_resolve_eir_data((uint8_t *)prop->val, ESP_BT_EIR_TYPE_CMPL_32BITS_UUID, &len);
 
-      if (data == nullptr)
+      if (data == NULL)
       {
         data = esp_bt_gap_resolve_eir_data((uint8_t *)prop->val, ESP_BT_EIR_TYPE_INCMPL_32BITS_UUID, &len);
       }
@@ -744,7 +1083,7 @@ void BTKeyboard::handle_bt_device_result(esp_bt_gap_cb_param_t *param)
 
       data = esp_bt_gap_resolve_eir_data((uint8_t *)prop->val, ESP_BT_EIR_TYPE_CMPL_128BITS_UUID, &len);
 
-      if (data == nullptr)
+      if (data == NULL)
       {
         data = esp_bt_gap_resolve_eir_data((uint8_t *)prop->val, ESP_BT_EIR_TYPE_INCMPL_128BITS_UUID, &len);
       }
@@ -759,11 +1098,11 @@ void BTKeyboard::handle_bt_device_result(esp_bt_gap_cb_param_t *param)
       }
 
       // try to find a name
-      if (name == nullptr)
+      if (name == NULL)
       {
         data = esp_bt_gap_resolve_eir_data((uint8_t *)prop->val, ESP_BT_EIR_TYPE_CMPL_LOCAL_NAME, &len);
 
-        if (data == nullptr)
+        if (data == NULL)
         {
           data = esp_bt_gap_resolve_eir_data((uint8_t *)prop->val, ESP_BT_EIR_TYPE_SHORT_LOCAL_NAME, &len);
         }
@@ -783,14 +1122,19 @@ void BTKeyboard::handle_bt_device_result(esp_bt_gap_cb_param_t *param)
   }
   GAP_DBG_PRINTF("\n");
 
+  if (!s_keyboard)
+  {
+    return;
+  }
+
   if ((cod->major == ESP_BT_COD_MAJOR_DEV_PERIPHERAL) ||
-      (find_scan_result(param->disc_res.bda, bt_scan_results) != nullptr))
+      (find_scan_result(param->disc_res.bda, s_keyboard->bt_scan_results) != NULL))
   {
     add_bt_scan_result(param->disc_res.bda, cod, &uuid, name, name_len, rssi);
   }
 }
 
-void BTKeyboard::bt_gap_event_handler(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *param)
+static UNUSED_ATTR void bt_gap_event_handler(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *param)
 {
   switch (event)
   {
@@ -805,13 +1149,13 @@ void BTKeyboard::bt_gap_event_handler(esp_bt_gap_cb_event_t event, esp_bt_gap_cb
   }
   case ESP_BT_GAP_DISC_RES_EVT:
   {
-    bt_keyboard->handle_bt_device_result(param);
+    handle_bt_device_result(param);
     break;
   }
   case ESP_BT_GAP_KEY_NOTIF_EVT:
     ESP_LOGV(TAG, "BT GAP KEY_NOTIF passkey:%d", param->key_notif.passkey);
-    if (bt_keyboard->pairing_handler != nullptr)
-      (*bt_keyboard->pairing_handler)(param->key_notif.passkey);
+    if (s_keyboard && s_keyboard->pairing_handler != NULL)
+      (*s_keyboard->pairing_handler)(param->key_notif.passkey);
     break;
   case ESP_BT_GAP_MODE_CHG_EVT:
     ESP_LOGV(TAG, "BT GAP MODE_CHG_EVT mode:%d", param->mode_chg.mode);
@@ -822,8 +1166,13 @@ void BTKeyboard::bt_gap_event_handler(esp_bt_gap_cb_event_t event, esp_bt_gap_cb
   }
 }
 
-void BTKeyboard::handle_ble_device_result(esp_ble_gap_cb_param_t *param)
+static void handle_ble_device_result(esp_ble_gap_cb_param_t *param)
 {
+  if (!s_keyboard)
+  {
+    return;
+  }
+
   uint16_t uuid = 0;
   uint16_t appearance = 0;
   char name[64] = "";
@@ -831,7 +1180,7 @@ void BTKeyboard::handle_ble_device_result(esp_ble_gap_cb_param_t *param)
   uint8_t uuid_len = 0;
   uint8_t *uuid_d = esp_ble_resolve_adv_data_by_type(param->scan_rst.ble_adv, param->scan_rst.adv_data_len + param->scan_rst.scan_rsp_len, ESP_BLE_AD_TYPE_16SRV_CMPL, &uuid_len);
 
-  if (uuid_d != nullptr && uuid_len)
+  if (uuid_d != NULL && uuid_len)
   {
     uuid = uuid_d[0] + (uuid_d[1] << 8);
   }
@@ -839,7 +1188,7 @@ void BTKeyboard::handle_ble_device_result(esp_ble_gap_cb_param_t *param)
   uint8_t appearance_len = 0;
   uint8_t *appearance_d = esp_ble_resolve_adv_data_by_type(param->scan_rst.ble_adv, param->scan_rst.adv_data_len + param->scan_rst.scan_rsp_len, ESP_BLE_AD_TYPE_APPEARANCE, &appearance_len);
 
-  if (appearance_d != nullptr && appearance_len)
+  if (appearance_d != NULL && appearance_len)
   {
     appearance = appearance_d[0] + (appearance_d[1] << 8);
   }
@@ -847,12 +1196,12 @@ void BTKeyboard::handle_ble_device_result(esp_ble_gap_cb_param_t *param)
   uint8_t adv_name_len = 0;
   uint8_t *adv_name = esp_ble_resolve_adv_data_by_type(param->scan_rst.ble_adv, param->scan_rst.adv_data_len + param->scan_rst.scan_rsp_len, ESP_BLE_AD_TYPE_NAME_CMPL, &adv_name_len);
 
-  if (adv_name == nullptr)
+  if (adv_name == NULL)
   {
     adv_name = esp_ble_resolve_adv_data_by_type(param->scan_rst.ble_adv, param->scan_rst.adv_data_len + param->scan_rst.scan_rsp_len,ESP_BLE_AD_TYPE_NAME_SHORT, &adv_name_len);
   }
 
-  if (adv_name != nullptr && adv_name_len)
+  if (adv_name != NULL && adv_name_len)
   {
     memcpy(name, adv_name, adv_name_len);
     name[adv_name_len] = 0;
@@ -913,7 +1262,7 @@ void BTKeyboard::handle_ble_device_result(esp_ble_gap_cb_param_t *param)
   free(dev_list);
 }
 
-void BTKeyboard::ble_gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param)
+static UNUSED_ATTR void ble_gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param)
 {
   switch (event)
   {
@@ -932,7 +1281,7 @@ void BTKeyboard::ble_gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap
     {
     case ESP_GAP_SEARCH_INQ_RES_EVT:
     {
-      bt_keyboard->handle_ble_device_result(param);
+      handle_ble_device_result(param);
       break;
     }
     case ESP_GAP_SEARCH_INQ_CMPL_EVT:
@@ -981,8 +1330,8 @@ void BTKeyboard::ble_gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap
     // The app will receive this evt when the IO has Output capability and the peer device IO has Input capability.
     // Show the passkey number to the user to input it in the peer device.
     ESP_LOGV(TAG, "BLE GAP PASSKEY_NOTIF passkey:%d", param->ble_security.key_notif.passkey);
-    if (bt_keyboard->pairing_handler != nullptr)
-      (*bt_keyboard->pairing_handler)(param->ble_security.key_notif.passkey);
+    if (s_keyboard && s_keyboard->pairing_handler != NULL)
+      (*s_keyboard->pairing_handler)(param->ble_security.key_notif.passkey);
     break;
 
   case ESP_GAP_BLE_NC_REQ_EVT: // ESP_IO_CAP_IO
@@ -1022,8 +1371,7 @@ void BTKeyboard::ble_gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap
   }
 }
 
-esp_err_t
-BTKeyboard::start_bt_scan(uint32_t seconds)
+static esp_err_t start_bt_scan(uint32_t seconds)
 {
   esp_err_t ret = ESP_OK;
   if ((ret = esp_bt_gap_start_discovery(ESP_BT_INQ_MODE_GENERAL_INQUIRY, (int)(seconds / 1.28), 0)) != ESP_OK)
@@ -1034,8 +1382,7 @@ BTKeyboard::start_bt_scan(uint32_t seconds)
   return ret;
 }
 
-esp_err_t
-BTKeyboard::start_ble_scan(uint32_t seconds)
+static esp_err_t start_ble_scan(uint32_t seconds)
 {
   static esp_ble_scan_params_t hid_scan_params = {
       .scan_type = BLE_SCAN_TYPE_ACTIVE,
@@ -1062,10 +1409,14 @@ BTKeyboard::start_ble_scan(uint32_t seconds)
   return ret;
 }
 
-esp_err_t
-BTKeyboard::esp_hid_scan(uint32_t seconds, size_t *num_results, esp_hid_scan_result_t **results, bool enable_bt_classic = true)
+static esp_err_t bt_keyboard_scan(uint32_t seconds, size_t *num_results, esp_hid_scan_result_t **results, bool enable_bt_classic)
 {
-  if (num_bt_scan_results || bt_scan_results || num_ble_scan_results || ble_scan_results)
+  if (!s_keyboard)
+  {
+    return ESP_FAIL;
+  }
+
+  if (s_keyboard->num_bt_scan_results || s_keyboard->bt_scan_results || s_keyboard->num_ble_scan_results || s_keyboard->ble_scan_results)
   {
     ESP_LOGE(TAG, "There are old scan results. Free them first!");
     return ESP_FAIL;
@@ -1092,33 +1443,39 @@ BTKeyboard::esp_hid_scan(uint32_t seconds, size_t *num_results, esp_hid_scan_res
     }
   }
 
-  *num_results = num_bt_scan_results + num_ble_scan_results;
-  *results = bt_scan_results;
+  *num_results = s_keyboard->num_bt_scan_results + s_keyboard->num_ble_scan_results;
+  *results = s_keyboard->bt_scan_results;
 
-  if (num_bt_scan_results)
+  if (s_keyboard->num_bt_scan_results)
   {
-    while (bt_scan_results->next != NULL)
+    esp_hid_scan_result_t *tail = s_keyboard->bt_scan_results;
+    while (tail->next != NULL)
     {
-      bt_scan_results = bt_scan_results->next;
+      tail = tail->next;
     }
-    bt_scan_results->next = ble_scan_results;
+    tail->next = s_keyboard->ble_scan_results;
   }
   else
   {
-    *results = ble_scan_results;
+    *results = s_keyboard->ble_scan_results;
   }
 
-  num_bt_scan_results = 0;
-  bt_scan_results = NULL;
-  num_ble_scan_results = 0;
-  ble_scan_results = NULL;
+  s_keyboard->num_bt_scan_results = 0;
+  s_keyboard->bt_scan_results = NULL;
+  s_keyboard->num_ble_scan_results = 0;
+  s_keyboard->ble_scan_results = NULL;
 
   return ESP_OK;
 }
 
-bool BTKeyboard::devices_scan(int seconds_wait_time)
+bool bt_keyboard_devices_scan(bt_keyboard_t *keyboard, int seconds_wait_time)
 {
-  if (state().is_connected)
+  if (!keyboard)
+  {
+    return false;
+  }
+
+  if (bt_keyboard_state()->is_connected)
     return true;
   size_t results_len = 0;
   esp_hid_scan_result_t *results = NULL;
@@ -1128,7 +1485,7 @@ bool BTKeyboard::devices_scan(int seconds_wait_time)
   int numBonded = esp_ble_get_bond_device_num();
   ESP_LOGV(TAG, "Number of bonded devices: %d", numBonded);
 
-  esp_ble_bond_dev_t *dev_list = nullptr;
+  esp_ble_bond_dev_t *dev_list = NULL;
   if (numBonded > 0)
   {
     dev_list = (esp_ble_bond_dev_t *)malloc(sizeof(esp_ble_bond_dev_t) * numBonded); // bonded device information list
@@ -1150,7 +1507,7 @@ bool BTKeyboard::devices_scan(int seconds_wait_time)
   }
   // start scan for HID devices
 
-  esp_hid_scan(seconds_wait_time, &results_len, &results);
+  bt_keyboard_scan(seconds_wait_time, &results_len, &results, true);
   ESP_LOGV(TAG, "SCAN: %u results", results_len);
 
   // check if last bonded device is present
@@ -1165,7 +1522,7 @@ bool BTKeyboard::devices_scan(int seconds_wait_time)
       if (is_bonded_device(r->bda, dev_list, numBonded))
       {
         ESP_LOGI(TAG, "Last bonded device present: " ESP_BD_ADDR_STR, ESP_BD_ADDR_HEX(r->bda));
-        state().last_connected = *r;
+        bt_keyboard_state()->last_connected = *r;
         if (esp_hidh_dev_open(r->bda, r->transport, r->ble.addr_type) != NULL)
         {
           ESP_LOGI(TAG, "Connected to device: " ESP_BD_ADDR_STR, ESP_BD_ADDR_HEX(r->bda));
@@ -1181,10 +1538,10 @@ bool BTKeyboard::devices_scan(int seconds_wait_time)
 
     if (connected_known_device)
     {
-      esp_hid_scan_results_free(results);
+      bt_keyboard_scan_results_free(results);
       if (dev_list)
         free(dev_list);
-      return true; // WARNING: devices_scan returning true doesn't mean device connected!! check state().is_connected for that
+      return true; // WARNING: devices_scan returning true doesn't mean device connected!! check bt_keyboard_state()->is_connected for that
     }
   }
 
@@ -1206,7 +1563,7 @@ bool BTKeyboard::devices_scan(int seconds_wait_time)
       if (r->transport == ESP_HID_TRANSPORT_BT)
       {
         cr = r;
-        state().bt_found = true;
+        bt_keyboard_state()->bt_found = true;
         printf("COD: %s[", esp_hid_cod_major_str(r->bt.cod.major));
         esp_hid_cod_minor_print(r->bt.cod.minor, stdout);
         printf("] srv 0x%03x, ", r->bt.cod.service);
@@ -1220,14 +1577,14 @@ bool BTKeyboard::devices_scan(int seconds_wait_time)
     if (cr)
     {
       // open the last result
-      state().last_connected = *cr; // store device for quick-connecting later
+      bt_keyboard_state()->last_connected = *cr; // store device for quick-connecting later
       if ((esp_hidh_dev_open(cr->bda, cr->transport, cr->ble.addr_type)) != NULL)
       {
         ESP_LOGI(TAG, "Connected to device: " ESP_BD_ADDR_STR, ESP_BD_ADDR_HEX(cr->bda));
-        esp_hid_scan_results_free(results);
+        bt_keyboard_scan_results_free(results);
         if (dev_list)
           free(dev_list);
-        return true; // WARNING: devices_scan retourning true doesn't mean device connected!! check state().is_connected for that
+        return true; // WARNING: devices_scan retourning true doesn't mean device connected!! check bt_keyboard_state()->is_connected for that
       }
       else
       {
@@ -1235,22 +1592,27 @@ bool BTKeyboard::devices_scan(int seconds_wait_time)
       }
     }
     // free the results
-    esp_hid_scan_results_free(results);
+    bt_keyboard_scan_results_free(results);
     if (dev_list)
       free(dev_list);
 
     return false;
   }
 
-  esp_hid_scan_results_free(results);
+  bt_keyboard_scan_results_free(results);
   if (dev_list)
     free(dev_list);
 
   return false;
 }
 
-bool BTKeyboard::devices_scan_ble_daemon(int seconds_wait_time)
+bool bt_keyboard_devices_scan_ble_daemon(bt_keyboard_t *keyboard, int seconds_wait_time)
 {
+  if (!keyboard)
+  {
+    return false;
+  }
+
   size_t results_len = 0;
   esp_hid_scan_result_t *results = NULL;
 
@@ -1268,7 +1630,7 @@ bool BTKeyboard::devices_scan_ble_daemon(int seconds_wait_time)
   }
   // start scan for HID devices
 
-  esp_hid_scan(seconds_wait_time, &results_len, &results, false);
+  bt_keyboard_scan(seconds_wait_time, &results_len, &results, false);
   ESP_LOGV(TAG, "SCAN: %u results", results_len);
 
   // check if last bonded device is present
@@ -1309,20 +1671,20 @@ bool BTKeyboard::devices_scan_ble_daemon(int seconds_wait_time)
       }
       r = r->next;
     }
-    esp_hid_scan_results_free(results);
+    bt_keyboard_scan_results_free(results);
     free(dev_list);
-    return true; // WARNING: devices_scan retourning true doesn't mean device connected!! check state().is_connected for that
+    return true; // WARNING: devices_scan retourning true doesn't mean device connected!! check bt_keyboard_state()->is_connected for that
   }
 
-  esp_hid_scan_results_free(results);
+  bt_keyboard_scan_results_free(results);
   free(dev_list);
   return false;
 }
 
-bool BTKeyboard::find_output_report(esp_hidh_dev_t *dev, size_t &map_index, size_t &report_id)
+static bool find_output_report(esp_hidh_dev_t *dev, size_t *map_index, size_t *report_id)
 {
   size_t num_reports;
-  esp_hid_report_item_t *reports = nullptr;
+  esp_hid_report_item_t *reports = NULL;
 
   esp_err_t ret = esp_hidh_dev_reports_get(dev, &num_reports, &reports);
   if (ret != ESP_OK)
@@ -1335,20 +1697,22 @@ bool BTKeyboard::find_output_report(esp_hidh_dev_t *dev, size_t &map_index, size
   {
     if (reports[i].report_type == ESP_HID_REPORT_TYPE_OUTPUT && reports[i].usage == ESP_HID_USAGE_KEYBOARD)
     {
-      report_id = reports[i].report_id;
-      map_index = reports[i].map_index;
+      if (report_id)
+        *report_id = reports[i].report_id;
+      if (map_index)
+        *map_index = reports[i].map_index;
       free(reports);
       return true;
     }
   }
 
-  if (reports != nullptr)
+  if (reports != NULL)
     free(reports);
 
   return false;  // no OUTPUT report found
 }
 
-void BTKeyboard::hidh_callback(void *handler_args, esp_event_base_t base, int32_t id, void *event_data)
+static UNUSED_ATTR void hidh_callback(void *handler_args, esp_event_base_t base, int32_t id, void *event_data)
 {
   esp_hidh_event_t event = (esp_hidh_event_t)id;
   esp_hidh_event_data_t *param = (esp_hidh_event_data_t *)event_data;
@@ -1371,10 +1735,11 @@ void BTKeyboard::hidh_callback(void *handler_args, esp_event_base_t base, int32_
         {
           esp_ble_conn_update_params_t conn_params;
           esp_gap_conn_params_t current_params;
-          esp_err_t ret = esp_ble_get_current_conn_params(const_cast<uint8_t *>(esp_hidh_dev_bda_get(param->open.dev)), &current_params);
+          const uint8_t *dev_bda = esp_hidh_dev_bda_get(param->open.dev);
+          esp_err_t ret = esp_ble_get_current_conn_params((uint8_t *)dev_bda, &current_params);
           if ((ret == ESP_OK) && (current_params.timeout < 120))
           {
-            memcpy(conn_params.bda, esp_hidh_dev_bda_get(param->open.dev), sizeof(esp_bd_addr_t));
+            memcpy(conn_params.bda, dev_bda, sizeof(esp_bd_addr_t));
             conn_params.latency = current_params.latency;
             conn_params.max_int = current_params.interval; // We preserve the device-negotiated intervals
             conn_params.min_int = 6;
@@ -1389,12 +1754,12 @@ void BTKeyboard::hidh_callback(void *handler_args, esp_event_base_t base, int32_
         }
 
         size_t num_maps = 0;
-        esp_hid_raw_report_map_t *report_maps = nullptr;
+        esp_hid_raw_report_map_t *report_maps = NULL;
         if (esp_hidh_dev_report_maps_get(param->open.dev, &num_maps, &report_maps))
         {
           ESP_LOGE(TAG, " Failed getting report maps for the device.");
         }
-        else if ((report_maps != nullptr) && num_maps)
+        else if ((report_maps != NULL) && num_maps)
         {
           for (size_t map_idx = 0; map_idx < num_maps; ++map_idx)
           {
@@ -1410,23 +1775,23 @@ void BTKeyboard::hidh_callback(void *handler_args, esp_event_base_t base, int32_
 
         ESP_LOGV(TAG, ESP_BD_ADDR_STR " OPEN: %s", ESP_BD_ADDR_HEX(bda), esp_hidh_dev_name_get(param->open.dev));
         esp_hidh_dev_dump(param->open.dev, stdout);
-        state().is_connected = true;
+        bt_keyboard_state()->is_connected = true;
         // The following copies the bda of the connected device and it's transport type
         // It is a guard to retrieve a BT Classic device's address that has previously connected
         // as it could connect outside the SCAN routines at boot
-        state().last_connected.transport = tra;
-        std::copy(bda, bda + ESP_BD_ADDR_LEN, state().last_connected.bda);
+        bt_keyboard_state()->last_connected.transport = tra;
+        memcpy(bt_keyboard_state()->last_connected.bda, bda, ESP_BD_ADDR_LEN);
         LED_DEVICE_MAP_LOCK();
         size_t map_index;
         size_t report_id;
-        if (find_output_report(param->open.dev, map_index, report_id))
+        if (find_output_report(param->open.dev, &map_index, &report_id))
         {
-          LedDeviceEntry *entry = find_led_device_by_bda(bda);
-          if (entry == nullptr)
+          led_device_entry_t *entry = find_led_device_by_bda(bda);
+          if (entry == NULL)
           {
             entry = allocate_led_device(bda);
           }
-          if (entry != nullptr)
+          if (entry != NULL)
           {
             entry->dev = param->open.dev;
             entry->map_index = map_index;
@@ -1438,7 +1803,7 @@ void BTKeyboard::hidh_callback(void *handler_args, esp_event_base_t base, int32_
       else
       {
         ESP_LOGE(TAG, " OPEN failed!");
-        state().is_connected = false;
+        bt_keyboard_state()->is_connected = false;
       }
       break;
     }
@@ -1446,7 +1811,10 @@ void BTKeyboard::hidh_callback(void *handler_args, esp_event_base_t base, int32_
   {
     const uint8_t *bda = esp_hidh_dev_bda_get(param->battery.dev);
     ESP_LOGV(TAG, ESP_BD_ADDR_STR " BATTERY: %d%%", ESP_BD_ADDR_HEX(bda), param->battery.level);
-    bt_keyboard->set_battery_level(param->battery.level);
+    if (s_keyboard)
+    {
+      s_keyboard->battery_level = param->battery.level;
+    }
     break;
   }
   case ESP_HIDH_INPUT_EVENT:
@@ -1461,27 +1829,27 @@ void BTKeyboard::hidh_callback(void *handler_args, esp_event_base_t base, int32_
     // MOUSE INPUT
     if (param->input.usage == ESP_HID_USAGE_MOUSE) // Filter report usages to kb only type
     {
-      hid_report_mouse *mouse_info = BTKeyboard::find_mouse_report(param->input.dev, param->input.report_id);
-      if (mouse_info == nullptr)
+      hid_report_mouse_t *mouse_info = find_mouse_report(param->input.dev, param->input.report_id);
+      if (mouse_info == NULL)
       {
         ESP_LOGW(TAG, "Missing mouse report info for dev=%p id=%u", param->input.dev, param->input.report_id);
         break;
       }
-      bt_keyboard->mouse_handle(param->input.data, mouse_info);
+      mouse_handle(param->input.data, mouse_info);
     }
 
     // KEYBOARD INPUT
     else if ((param->input.usage == ESP_HID_USAGE_KEYBOARD) && (param->input.length > 1)) // Filter report usages to kb only type
     {
-      bt_keyboard->push_key(param->input.data, param->input.length);
+      push_key(param->input.data, param->input.length);
     }
 
     // MULTIMEDIA KEYS INPUT (CCONTROL)
     else if (param->input.usage == ESP_HID_USAGE_CCONTROL)
     {
-      hid_report_multimedia_control *report_info =
-          BTKeyboard::find_multimedia_report(param->input.dev, param->input.report_id);
-      if (report_info == nullptr)
+      hid_report_multimedia_control_t *report_info =
+          find_multimedia_report(param->input.dev, param->input.report_id);
+      if (report_info == NULL)
       {
         ESP_LOGW(TAG, "Missing multimedia report info for dev=%p id=%u", param->input.dev, param->input.report_id);
         break;
@@ -1489,7 +1857,7 @@ void BTKeyboard::hidh_callback(void *handler_args, esp_event_base_t base, int32_
 
       if (!report_info->contains_array)
       {
-        BTKeyboard::state().multimedia_keys.clear();
+        multimedia_usage_clear(&bt_keyboard_state()->multimedia_keys);
         uint8_t mask = 1;
         int bit_count = 0;
         uint8_t *p_data = param->input.data;
@@ -1500,10 +1868,10 @@ void BTKeyboard::hidh_callback(void *handler_args, esp_event_base_t base, int32_
           {
             if (*p_data & mask)
             {
-              if (bit_count < static_cast<int>(report_info->array_usages_len))
+              if (bit_count < (int)report_info->array_usages_len)
               {
                 uint16_t usage = report_info->array_usages[bit_count];
-                if (!BTKeyboard::state().multimedia_keys.push(usage))
+                if (!multimedia_usage_push(&bt_keyboard_state()->multimedia_keys, usage))
                 {
                   ESP_LOGW(TAG, "Multimedia key buffer full, dropping usage 0x%04x", usage);
                 }
@@ -1520,11 +1888,11 @@ void BTKeyboard::hidh_callback(void *handler_args, esp_event_base_t base, int32_
           p_data++;
         }
 
-        bt_keyboard->push_key_CCONTROL(BTKeyboard::state().multimedia_keys.values, BTKeyboard::state().multimedia_keys.len);
+        push_key_CCONTROL(bt_keyboard_state()->multimedia_keys.values, bt_keyboard_state()->multimedia_keys.len);
       }
       else // report contains array data (pure usage codes)
       {
-        BTKeyboard::state().multimedia_keys.clear();
+        multimedia_usage_clear(&bt_keyboard_state()->multimedia_keys);
         uint32_t key_temp;
         uint8_t bytes_to_copy = (report_info->input_len / report_info->report_count) / 8;
         uint8_t *p_data = param->input.data;
@@ -1536,7 +1904,7 @@ void BTKeyboard::hidh_callback(void *handler_args, esp_event_base_t base, int32_
           for (int i = report_info->report_count; i > 0; i--)
           {
             memcpy(&key_temp, p_data, bytes_to_copy);
-            if (!BTKeyboard::state().multimedia_keys.push(key_temp))
+            if (!multimedia_usage_push(&bt_keyboard_state()->multimedia_keys, key_temp))
             {
               ESP_LOGW(TAG, "Multimedia key buffer full, dropping usage 0x%04x", key_temp);
             }
@@ -1544,7 +1912,7 @@ void BTKeyboard::hidh_callback(void *handler_args, esp_event_base_t base, int32_
           }
         }
 
-        bt_keyboard->push_key_CCONTROL(BTKeyboard::state().multimedia_keys.values, BTKeyboard::state().multimedia_keys.len);
+        push_key_CCONTROL(bt_keyboard_state()->multimedia_keys.values, bt_keyboard_state()->multimedia_keys.len);
       }
     }
 
@@ -1573,22 +1941,22 @@ void BTKeyboard::hidh_callback(void *handler_args, esp_event_base_t base, int32_
       remove_led_devices_for_dev(param->close.dev);
       LED_DEVICE_MAP_UNLOCK();
 
-      for (auto &entry : BTKeyboard::state().multimedia_reports)
+      for (size_t i = 0; i < BT_KEYBOARD_MAX_MULTIMEDIA_REPORTS; ++i)
       {
-        if (entry.in_use && entry.dev == param->close.dev)
+        if (bt_keyboard_state()->multimedia_reports[i].in_use && bt_keyboard_state()->multimedia_reports[i].dev == param->close.dev)
         {
-          entry.in_use = false;
+          bt_keyboard_state()->multimedia_reports[i].in_use = false;
         }
       }
-      for (auto &entry : BTKeyboard::state().mouse_reports)
+      for (size_t i = 0; i < BT_KEYBOARD_MAX_MOUSE_REPORTS; ++i)
       {
-        if (entry.in_use && entry.dev == param->close.dev)
+        if (bt_keyboard_state()->mouse_reports[i].in_use && bt_keyboard_state()->mouse_reports[i].dev == param->close.dev)
         {
-          entry.in_use = false;
+          bt_keyboard_state()->mouse_reports[i].in_use = false;
         }
       }
     }
-    state().is_connected = false;
+    bt_keyboard_state()->is_connected = false;
     break;
   }
   default:
@@ -1597,9 +1965,14 @@ void BTKeyboard::hidh_callback(void *handler_args, esp_event_base_t base, int32_
   }
 }
 
-void BTKeyboard::mouse_handle(uint8_t *report_data, hid_report_mouse *report_info)
+static UNUSED_ATTR void mouse_handle(uint8_t *report_data, hid_report_mouse_t *report_info)
 {
-  Mouse_Control mouse;
+  if (!s_keyboard)
+  {
+    return;
+  }
+
+  bt_keyboard_mouse_control_t mouse;
 
   mouse.mouse_x = getBits(report_data, report_info->mouse_x_bit_index, report_info->mouse_x_bit_lenght);
   mouse.mouse_y = getBits(report_data, report_info->mouse_y_bit_index, report_info->mouse_y_bit_lenght);
@@ -1607,11 +1980,16 @@ void BTKeyboard::mouse_handle(uint8_t *report_data, hid_report_mouse *report_inf
   mouse.mouse_buttons = (uint8_t)getBits(report_data, report_info->mouse_buttons_bit_index, report_info->mouse_buttons_amount); // only a single byte for mouse buttons is supported (3 mouse buttons will be used later only)
 
   ESP_LOGD(TAG, "Mouse passed to MAIN: B: %u X: %d Y: %d W: %d", mouse.mouse_buttons, mouse.mouse_x, mouse.mouse_y, mouse.mouse_w);
-  xQueueSend(event_queue_MOUSE, &mouse, 0);
+  xQueueSend(s_keyboard->event_queue_MOUSE, &mouse, 0);
 }
 
-void BTKeyboard::push_key(uint8_t *keys, uint8_t size)
+static UNUSED_ATTR void push_key(uint8_t *keys, uint8_t size)
 {
+  if (!s_keyboard)
+  {
+    return;
+  }
+
   uint8_t offset = 2; // default to BOOT mode report, second byte is always 0
 
   if (keys[1]) // some keyboards use REPORT mode and the second byte of the report is the first one
@@ -1619,58 +1997,69 @@ void BTKeyboard::push_key(uint8_t *keys, uint8_t size)
     offset = 1;
   }
 
-  KeyInfo inf;
-  inf.modifier = (KeyModifier)keys[0];
+  bt_keyboard_key_info_t inf;
+  inf.modifier = (bt_keyboard_key_modifier_t)keys[0];
 
-  uint8_t max = (size > MAX_KEY_COUNT + offset) ? MAX_KEY_COUNT : size - offset;
+  uint8_t max = (size > BT_KEYBOARD_MAX_KEY_COUNT + offset) ? BT_KEYBOARD_MAX_KEY_COUNT : size - offset;
   // inf.keys[0] = inf.keys[1] = inf.keys[2] = 0; // No need to do this?
   for (int i = 0; i < max; i++)
   {
     inf.keys[i] = keys[i + offset];
   }
-  if (max < MAX_KEY_COUNT) // End flag in case our keyboard reports less keys than our max count
+  if (max < BT_KEYBOARD_MAX_KEY_COUNT) // End flag in case our keyboard reports less keys than our max count
     inf.keys[max] = 0;
   ESP_LOG_BUFFER_HEX_LEVEL("KEYS PASSED TO MAIN: ", inf.keys, max, ESP_LOG_DEBUG);
-  ESP_LOGD("bt_keyboard", "MODIFIER: 0x%x", inf.modifier);
-  xQueueSend(event_queue, &inf, 0);
+  ESP_LOGD("bt_keyboard", "MODIFIER: 0x%x", (uint8_t)inf.modifier);
+  xQueueSend(s_keyboard->event_queue, &inf, 0);
 }
 
-void BTKeyboard::push_key_CCONTROL(uint16_t *keys, uint8_t size)
+static UNUSED_ATTR void push_key_CCONTROL(uint16_t *keys, uint8_t size)
 {
+  if (!s_keyboard)
+  {
+    return;
+  }
+
   ESP_LOGD(TAG, "First Key: %x", *keys);
 
-  KeyInfo_CCONTROL inf;
+  bt_keyboard_key_info_ccontrol_t inf;
 
-  uint8_t max = (size > MAX_KEY_COUNT) ? MAX_KEY_COUNT : size;
+  uint8_t max = (size > BT_KEYBOARD_MAX_KEY_COUNT) ? BT_KEYBOARD_MAX_KEY_COUNT : size;
 
   for (int i = 0; i < max; i++)
   {
     inf.keys[i] = keys[i];
   }
-  if (max < MAX_KEY_COUNT) // End flag in case our keyboard reports less keys than our max count
+  if (max < BT_KEYBOARD_MAX_KEY_COUNT) // End flag in case our keyboard reports less keys than our max count
     inf.keys[max] = 0;
   ESP_LOG_BUFFER_HEX_LEVEL("MULTIMEDIA CCONTROL KEYS PASSED TO MAIN (Hex Dump): ", inf.keys, max * 2, ESP_LOG_DEBUG);
-  xQueueSend(event_queue_CCONTROL, &inf, 0);
+  xQueueSend(s_keyboard->event_queue_CCONTROL, &inf, 0);
 }
 
-char BTKeyboard::wait_for_ascii_char(bool forever)
+char bt_keyboard_wait_for_ascii_char(bt_keyboard_t *keyboard, bool forever)
 {
-  KeyInfo inf;
+  if (!keyboard)
+  {
+    return 0;
+  }
+
+  bt_keyboard_key_info_t inf;
 
   while (true)
   {
-    if (!wait_for_low_event(inf, (last_ch == 0) ? (forever ? portMAX_DELAY : 0) : repeat_period))
+    TickType_t timeout = (keyboard->last_ch == 0) ? (forever ? portMAX_DELAY : 0) : keyboard->repeat_period;
+    if (!bt_keyboard_wait_for_low_event(keyboard, &inf, timeout))
     {
-      repeat_period = pdMS_TO_TICKS(120);
-      return last_ch;
+      keyboard->repeat_period = pdMS_TO_TICKS(120);
+      return keyboard->last_ch;
     }
 
     int k = -1;
-    for (int i = 0; i < MAX_KEY_COUNT; i++)
+    for (int i = 0; i < BT_KEYBOARD_MAX_KEY_COUNT; i++)
     {
-      if ((k < 0) && key_avail[i])
+      if ((k < 0) && keyboard->key_avail[i])
         k = i;
-      key_avail[i] = inf.keys[i] == 0;
+      keyboard->key_avail[i] = inf.keys[i] == 0;
     }
 
     if (k < 0)
@@ -1682,65 +2071,61 @@ char BTKeyboard::wait_for_ascii_char(bool forever)
 
     if (ch >= 4)
     {
-      if ((uint8_t)inf.modifier & CTRL_MASK)
+      if ((uint8_t)inf.modifier & BT_KEYBOARD_CTRL_MASK)
       {
         if (ch < (3 + 26))
         {
-          repeat_period = pdMS_TO_TICKS(500);
-          return last_ch = (ch - 3);
+          keyboard->repeat_period = pdMS_TO_TICKS(500);
+          keyboard->last_ch = (ch - 3);
+          return keyboard->last_ch;
         }
       }
       else if (ch <= 0x52)
       {
-        // ESP_LOGI(TAG, "Scan code: %d", ch);
-        if (ch == KEY_CAPS_LOCK)
-          caps_lock = !caps_lock;
-        if ((uint8_t)inf.modifier & SHIFT_MASK)
+        if (ch == BT_KEYBOARD_KEY_CAPS_LOCK)
+          keyboard->caps_lock = !keyboard->caps_lock;
+
+        bool shifted = ((uint8_t)inf.modifier & BT_KEYBOARD_SHIFT_MASK) != 0;
+        bool caps = keyboard->caps_lock;
+
+        keyboard->repeat_period = pdMS_TO_TICKS(500);
+        if (shifted ^ caps)
         {
-          if (caps_lock)
-          {
-            repeat_period = pdMS_TO_TICKS(500);
-            return last_ch = shift_trans_dict[(ch - 4) << 1];
-          }
-          else
-          {
-            repeat_period = pdMS_TO_TICKS(500);
-            return last_ch = shift_trans_dict[((ch - 4) << 1) + 1];
-          }
+          keyboard->last_ch = shift_trans_dict[(ch - 4) << 1];
         }
         else
         {
-          if (caps_lock)
-          {
-            repeat_period = pdMS_TO_TICKS(500);
-            return last_ch = shift_trans_dict[((ch - 4) << 1) + 1];
-          }
-          else
-          {
-            repeat_period = pdMS_TO_TICKS(500);
-            return last_ch = shift_trans_dict[(ch - 4) << 1];
-          }
+          keyboard->last_ch = shift_trans_dict[((ch - 4) << 1) + 1];
         }
+        return keyboard->last_ch;
       }
     }
-
-    last_ch = 0;
   }
 }
 
-void BTKeyboard::quick_reconnect(void) // tries to connect to the latest bonded device, without a scan
+char bt_keyboard_get_ascii_char(bt_keyboard_t *keyboard)
 {
-  while (!BTKeyboard::state().is_connected)
+  return bt_keyboard_wait_for_ascii_char(keyboard, false);
+}
+
+void bt_keyboard_quick_reconnect(bt_keyboard_t *keyboard)
+{
+  if (!keyboard)
   {
-    ESP_LOGI(TAG, "Trying to reconnect To: " ESP_BD_ADDR_STR, ESP_BD_ADDR_HEX(state().last_connected.bda));
-    ESP_LOGI(TAG, "TRANSPORT:  %s", (state().last_connected.transport == ESP_HID_TRANSPORT_BLE) ? "BLE" : "BT ");
-    esp_hidh_dev_open(state().last_connected.bda, state().last_connected.transport, state().last_connected.ble.addr_type);
+    return;
+  }
+
+  while (!bt_keyboard_state()->is_connected)
+  {
+    ESP_LOGI(TAG, "Trying to reconnect To: " ESP_BD_ADDR_STR, ESP_BD_ADDR_HEX(bt_keyboard_state()->last_connected.bda));
+    ESP_LOGI(TAG, "TRANSPORT:  %s", (bt_keyboard_state()->last_connected.transport == ESP_HID_TRANSPORT_BLE) ? "BLE" : "BT ");
+    esp_hidh_dev_open(bt_keyboard_state()->last_connected.bda, bt_keyboard_state()->last_connected.transport, bt_keyboard_state()->last_connected.ble.addr_type);
     ESP_LOGI(TAG, "Tried to reconnect.");
     vTaskDelay(2000 / portTICK_PERIOD_MS);
   }
 }
 
-esp_err_t BTKeyboard::hid_report_parse_multimedia_keys(const uint8_t *hid_rm, size_t hid_rm_len, esp_hidh_dev_t *device)
+static UNUSED_ATTR esp_err_t hid_report_parse_multimedia_keys(const uint8_t *hid_rm, size_t hid_rm_len, esp_hidh_dev_t *device)
 {
   size_t index = 0;
   int res;
@@ -1767,7 +2152,7 @@ esp_err_t BTKeyboard::hid_report_parse_multimedia_keys(const uint8_t *hid_rm, si
   return ESP_OK;
 }
 
-int BTKeyboard::parse_cmd(const uint8_t *data, size_t len, size_t index, hid_report_cmd_t **out)
+static UNUSED_ATTR int parse_cmd(const uint8_t *data, size_t len, size_t index, hid_report_cmd_t **out)
 {
   if (index == len)
   {
@@ -1801,9 +2186,9 @@ int BTKeyboard::parse_cmd(const uint8_t *data, size_t len, size_t index, hid_rep
   return cmd->len + 1;
 }
 
-int BTKeyboard::handle_cmd(hid_report_cmd_t *cmd, esp_hidh_dev_t *device)
+static UNUSED_ATTR int handle_cmd(hid_report_cmd_t *cmd, esp_hidh_dev_t *device)
 {
-  switch (BTKeyboard::state().parse_step)
+  switch (bt_keyboard_state()->parse_step)
   {
   case PARSE_WAIT_USAGE_PAGE:
   {
@@ -1812,13 +2197,13 @@ int BTKeyboard::handle_cmd(hid_report_cmd_t *cmd, esp_hidh_dev_t *device)
       ESP_LOGE("BT_Keyboard handle_cmd:", "expected USAGE_PAGE, but got 0x%02x", cmd->cmd);
       return -1;
     }
-    BTKeyboard::state().report_size = 0;
-    BTKeyboard::state().report_count = 0;
-    // memset(&BTKeyboard::state().report_params, 0, sizeof(hid_report_params_t));
-    BTKeyboard::state().report_params = BTKeyboard::state().report_params_empty;
+    bt_keyboard_state()->report_size = 0;
+    bt_keyboard_state()->report_count = 0;
+    // memset(&bt_keyboard_state()->report_params, 0, sizeof(hid_report_params_t));
+    bt_keyboard_state()->report_params = bt_keyboard_state()->report_params_empty;
 
-    BTKeyboard::state().report_params.usage_page = cmd->value;
-    BTKeyboard::state().parse_step = PARSE_WAIT_USAGE;
+    bt_keyboard_state()->report_params.usage_page = cmd->value;
+    bt_keyboard_state()->parse_step = PARSE_WAIT_USAGE;
     break;
   }
   case PARSE_WAIT_USAGE:
@@ -1826,11 +2211,11 @@ int BTKeyboard::handle_cmd(hid_report_cmd_t *cmd, esp_hidh_dev_t *device)
     if (cmd->cmd != HID_RM_USAGE)
     {
       ESP_LOGE("BT_Keyboard handle_cmd:", "expected USAGE, but got 0x%02x", cmd->cmd);
-      BTKeyboard::state().parse_step = PARSE_WAIT_USAGE_PAGE;
+      bt_keyboard_state()->parse_step = PARSE_WAIT_USAGE_PAGE;
       return -1;
     }
-    BTKeyboard::state().report_params.usage = cmd->value;
-    BTKeyboard::state().parse_step = PARSE_WAIT_COLLECTION_APPLICATION;
+    bt_keyboard_state()->report_params.usage = cmd->value;
+    bt_keyboard_state()->parse_step = PARSE_WAIT_COLLECTION_APPLICATION;
     break;
   }
   case PARSE_WAIT_COLLECTION_APPLICATION:
@@ -1838,212 +2223,216 @@ int BTKeyboard::handle_cmd(hid_report_cmd_t *cmd, esp_hidh_dev_t *device)
     if (cmd->cmd != HID_RM_COLLECTION)
     {
       ESP_LOGE("BT_Keyboard handle_cmd:", "expected COLLECTION, but got 0x%02x", cmd->cmd);
-      BTKeyboard::state().parse_step = PARSE_WAIT_USAGE_PAGE;
+      bt_keyboard_state()->parse_step = PARSE_WAIT_USAGE_PAGE;
       return -1;
     }
     if (cmd->value != 1)
     {
       ESP_LOGE("BT_Keyboard handle_cmd:", "expected APPLICATION, but got 0x%02x", cmd->value);
-      BTKeyboard::state().parse_step = PARSE_WAIT_USAGE_PAGE;
+      bt_keyboard_state()->parse_step = PARSE_WAIT_USAGE_PAGE;
       return -1;
     }
-    BTKeyboard::state().report_params.report_id = 0;
-    BTKeyboard::state().collection_depth = 1;
-    BTKeyboard::state().parse_step = PARSE_WAIT_END_COLLECTION;
+    bt_keyboard_state()->report_params.report_id = 0;
+    bt_keyboard_state()->collection_depth = 1;
+    bt_keyboard_state()->parse_step = PARSE_WAIT_END_COLLECTION;
     break;
   }
   case PARSE_WAIT_END_COLLECTION:
   {
     if (cmd->cmd == HID_RM_REPORT_ID)
     {
-      if (BTKeyboard::state().report_params.report_id && BTKeyboard::state().report_params.report_id != cmd->value)
+      if (bt_keyboard_state()->report_params.report_id && bt_keyboard_state()->report_params.report_id != cmd->value)
       {
         // report id changed mid collection
-        if (BTKeyboard::state().report_params.input_len & 0x7)
+        if (bt_keyboard_state()->report_params.input_len & 0x7)
         {
-          ESP_LOGE("BT_Keyboard handle_cmd:", "ERROR: INPUT report does not amount to full bytes! %d (%d)", BTKeyboard::state().report_params.input_len, BTKeyboard::state().report_params.input_len & 0x7);
+          ESP_LOGE("BT_Keyboard handle_cmd:", "ERROR: INPUT report does not amount to full bytes! %d (%d)", bt_keyboard_state()->report_params.input_len, bt_keyboard_state()->report_params.input_len & 0x7);
         }
-        else if (BTKeyboard::state().report_params.output_len & 0x7)
+        else if (bt_keyboard_state()->report_params.output_len & 0x7)
         {
-          ESP_LOGE("BT_Keyboard handle_cmd:", "ERROR: OUTPUT report does not amount to full bytes! %d (%d)", BTKeyboard::state().report_params.output_len, BTKeyboard::state().report_params.output_len & 0x7);
+          ESP_LOGE("BT_Keyboard handle_cmd:", "ERROR: OUTPUT report does not amount to full bytes! %d (%d)", bt_keyboard_state()->report_params.output_len, bt_keyboard_state()->report_params.output_len & 0x7);
         }
-        else if (BTKeyboard::state().report_params.feature_len & 0x7)
+        else if (bt_keyboard_state()->report_params.feature_len & 0x7)
         {
-          ESP_LOGE("BT_Keyboard handle_cmd:", "ERROR: FEATURE report does not amount to full bytes! %d (%d)", BTKeyboard::state().report_params.feature_len, BTKeyboard::state().report_params.feature_len & 0x7);
+          ESP_LOGE("BT_Keyboard handle_cmd:", "ERROR: FEATURE report does not amount to full bytes! %d (%d)", bt_keyboard_state()->report_params.feature_len, bt_keyboard_state()->report_params.feature_len & 0x7);
         }
         else
         {
           // SUCCESS!!!
-          int res = handle_report(&BTKeyboard::state().report_params, device);
+          int res = handle_report(&bt_keyboard_state()->report_params, device);
           if (res != 0)
           {
-            BTKeyboard::state().parse_step = PARSE_WAIT_USAGE_PAGE;
+            bt_keyboard_state()->parse_step = PARSE_WAIT_USAGE_PAGE;
             return -1;
           }
 
-          BTKeyboard::state().report_params.input_len = 0;
-          BTKeyboard::state().report_params.output_len = 0;
-          BTKeyboard::state().report_params.feature_len = 0;
-          BTKeyboard::state().report_params.usage = BTKeyboard::state().report_params.inner_usage;
-          BTKeyboard::state().report_params.usage_page = BTKeyboard::state().report_params.inner_usage_page;
+          bt_keyboard_state()->report_params.input_len = 0;
+          bt_keyboard_state()->report_params.output_len = 0;
+          bt_keyboard_state()->report_params.feature_len = 0;
+          bt_keyboard_state()->report_params.usage = bt_keyboard_state()->report_params.inner_usage;
+          bt_keyboard_state()->report_params.usage_page = bt_keyboard_state()->report_params.inner_usage_page;
         }
       }
-      BTKeyboard::state().report_params.report_id = cmd->value;
+      bt_keyboard_state()->report_params.report_id = cmd->value;
     }
     else if (cmd->cmd == HID_RM_USAGE_PAGE)
     {
-      BTKeyboard::state().report_params.inner_usage_page = cmd->value;
+      bt_keyboard_state()->report_params.inner_usage_page = cmd->value;
     }
     else if (cmd->cmd == HID_RM_USAGE)
     {
-      BTKeyboard::state().report_params.inner_usage = cmd->value;
-      if (!BTKeyboard::state().temp_usages.push(cmd->value))
+      bt_keyboard_state()->report_params.inner_usage = cmd->value;
+      if (!temp_usage_push(&bt_keyboard_state()->temp_usages, cmd->value))
       {
         ESP_LOGW(TAG, "Temp usage buffer full, dropping usage 0x%04x", cmd->value);
       }
-      BTKeyboard::state().usages_count++;
+      bt_keyboard_state()->usages_count++;
     }
     else if (cmd->cmd == HID_RM_REPORT_SIZE)
     {
-      BTKeyboard::state().report_size = cmd->value;
+      bt_keyboard_state()->report_size = cmd->value;
     }
     else if (cmd->cmd == HID_RM_REPORT_COUNT)
     {
-      BTKeyboard::state().report_count = cmd->value;
+      bt_keyboard_state()->report_count = cmd->value;
     }
     else if (cmd->cmd == HID_RM_LOGICAL_MINIMUM)
     {
-      BTKeyboard::state().report_params.logical_minimum = cmd->value;
+      bt_keyboard_state()->report_params.logical_minimum = cmd->value;
     }
     else if (cmd->cmd == HID_RM_LOGICAL_MAXIMUM)
     {
-      BTKeyboard::state().report_params.logical_maximum = cmd->value;
+      bt_keyboard_state()->report_params.logical_maximum = cmd->value;
     }
     else if (cmd->cmd == HID_RM_USAGE_MAXIMUM)
     {
-      BTKeyboard::state().report_params.usage_maximum = cmd->value;
+      bt_keyboard_state()->report_params.usage_maximum = cmd->value;
     }
     else if (cmd->cmd == HID_RM_USAGE_MINIMUM)
     {
-      BTKeyboard::state().report_params.usage_minimum = cmd->value;
+      bt_keyboard_state()->report_params.usage_minimum = cmd->value;
     }
     else if (cmd->cmd == HID_RM_INPUT)
     {
-      if (BTKeyboard::state().report_params.usage == HID_USAGE_MOUSE) // process mouse usages
+      if (bt_keyboard_state()->report_params.usage == HID_USAGE_MOUSE) // process mouse usages
       {
-        for (size_t j = 0; j < BTKeyboard::state().temp_usages.len; j++)
+        for (size_t j = 0; j < bt_keyboard_state()->temp_usages.len; j++)
         {
-          if (BTKeyboard::state().temp_usages.values[j] == 0x30) // X
+          if (bt_keyboard_state()->temp_usages.values[j] == 0x30) // X
           {
-            BTKeyboard::state().report_params.mouse_x_bit_index = BTKeyboard::state().report_params.input_len + (j * BTKeyboard::state().report_size);
-            BTKeyboard::state().report_params.mouse_x_lenght = BTKeyboard::state().report_size;
+            bt_keyboard_state()->report_params.mouse_x_bit_index = bt_keyboard_state()->report_params.input_len + (j * bt_keyboard_state()->report_size);
+            bt_keyboard_state()->report_params.mouse_x_lenght = bt_keyboard_state()->report_size;
           }
-          else if (BTKeyboard::state().temp_usages.values[j] == 0x31) // Y
+          else if (bt_keyboard_state()->temp_usages.values[j] == 0x31) // Y
           {
-            BTKeyboard::state().report_params.mouse_y_bit_index = BTKeyboard::state().report_params.input_len + (j * BTKeyboard::state().report_size);
-            BTKeyboard::state().report_params.mouse_y_lenght = BTKeyboard::state().report_size;
+            bt_keyboard_state()->report_params.mouse_y_bit_index = bt_keyboard_state()->report_params.input_len + (j * bt_keyboard_state()->report_size);
+            bt_keyboard_state()->report_params.mouse_y_lenght = bt_keyboard_state()->report_size;
           }
-          else if (BTKeyboard::state().temp_usages.values[j] == 0x38) // W (wheel)
+          else if (bt_keyboard_state()->temp_usages.values[j] == 0x38) // W (wheel)
           {
-            BTKeyboard::state().report_params.mouse_w_bit_index = BTKeyboard::state().report_params.input_len + (j * BTKeyboard::state().report_size);
-            BTKeyboard::state().report_params.mouse_w_lenght = BTKeyboard::state().report_size;
+            bt_keyboard_state()->report_params.mouse_w_bit_index = bt_keyboard_state()->report_params.input_len + (j * bt_keyboard_state()->report_size);
+            bt_keyboard_state()->report_params.mouse_w_lenght = bt_keyboard_state()->report_size;
           }
         }
-        BTKeyboard::state().temp_usages.clear();
+        temp_usage_clear(&bt_keyboard_state()->temp_usages);
 
-        if (!(cmd->value & 0x1) && (BTKeyboard::state().report_params.inner_usage_page == 0x09)) // data (no const) & button usage page check
+        if (!(cmd->value & 0x1) && (bt_keyboard_state()->report_params.inner_usage_page == 0x09)) // data (no const) & button usage page check
         {
-          BTKeyboard::state().report_params.mouse_buttons_bit_index = BTKeyboard::state().report_params.input_len;
-          BTKeyboard::state().report_params.mouse_buttons_amount = BTKeyboard::state().report_count;
+          bt_keyboard_state()->report_params.mouse_buttons_bit_index = bt_keyboard_state()->report_params.input_len;
+          bt_keyboard_state()->report_params.mouse_buttons_amount = bt_keyboard_state()->report_count;
         }
       }
       else // process keyboard usages
       {
-        int i = (BTKeyboard::state().report_size * BTKeyboard::state().report_count) - BTKeyboard::state().usages_count; // usages vector: fill with 0's when no usage is added
+        int i = (bt_keyboard_state()->report_size * bt_keyboard_state()->report_count) - bt_keyboard_state()->usages_count; // usages vector: fill with 0's when no usage is added
         for (int k = 0; k < i; k++)
         {
-          if (!BTKeyboard::state().temp_usages.push(0))
+          if (!temp_usage_push(&bt_keyboard_state()->temp_usages, 0))
           {
             ESP_LOGW(TAG, "Temp usage buffer full, dropping zero usage");
           }
         }
       }
 
-      BTKeyboard::state().usages_count = 0;
+      bt_keyboard_state()->usages_count = 0;
 
       if (!(cmd->value & 0x2)) // array check
       {
-        BTKeyboard::state().report_params.contains_array = true;
+        bt_keyboard_state()->report_params.contains_array = true;
       }
 
-      BTKeyboard::state().report_params.input_len += (BTKeyboard::state().report_size * BTKeyboard::state().report_count); // input lenght is always increased (LAST)
+      bt_keyboard_state()->report_params.input_len += (bt_keyboard_state()->report_size * bt_keyboard_state()->report_count); // input lenght is always increased (LAST)
     }
     else if (cmd->cmd == HID_RM_OUTPUT)
     {
-      BTKeyboard::state().report_params.output_len += (BTKeyboard::state().report_size * BTKeyboard::state().report_count);
+      bt_keyboard_state()->report_params.output_len += (bt_keyboard_state()->report_size * bt_keyboard_state()->report_count);
     }
     else if (cmd->cmd == HID_RM_FEATURE)
     {
-      BTKeyboard::state().report_params.feature_len += (BTKeyboard::state().report_size * BTKeyboard::state().report_count);
+      bt_keyboard_state()->report_params.feature_len += (bt_keyboard_state()->report_size * bt_keyboard_state()->report_count);
     }
     else if (cmd->cmd == HID_RM_COLLECTION)
     {
-      BTKeyboard::state().collection_depth += 1;
+      bt_keyboard_state()->collection_depth += 1;
     }
     else if (cmd->cmd == HID_RM_END_COLLECTION)
     {
-      BTKeyboard::state().collection_depth -= 1;
-      if (BTKeyboard::state().collection_depth == 0)
+      bt_keyboard_state()->collection_depth -= 1;
+      if (bt_keyboard_state()->collection_depth == 0)
       {
-        if (BTKeyboard::state().report_params.input_len & 0x7)
+        if (bt_keyboard_state()->report_params.input_len & 0x7)
         {
-          ESP_LOGE("BT_Keyboard handle_cmd:", "ERROR: INPUT report does not amount to full bytes! %d (%d)", BTKeyboard::state().report_params.input_len, BTKeyboard::state().report_params.input_len & 0x7);
+          ESP_LOGE("BT_Keyboard handle_cmd:", "ERROR: INPUT report does not amount to full bytes! %d (%d)", bt_keyboard_state()->report_params.input_len, bt_keyboard_state()->report_params.input_len & 0x7);
         }
-        else if (BTKeyboard::state().report_params.output_len & 0x7)
+        else if (bt_keyboard_state()->report_params.output_len & 0x7)
         {
-          ESP_LOGE("BT_Keyboard handle_cmd:", "ERROR: OUTPUT report does not amount to full bytes! %d (%d)", BTKeyboard::state().report_params.output_len, BTKeyboard::state().report_params.output_len & 0x7);
+          ESP_LOGE("BT_Keyboard handle_cmd:", "ERROR: OUTPUT report does not amount to full bytes! %d (%d)", bt_keyboard_state()->report_params.output_len, bt_keyboard_state()->report_params.output_len & 0x7);
         }
-        else if (BTKeyboard::state().report_params.feature_len & 0x7)
+        else if (bt_keyboard_state()->report_params.feature_len & 0x7)
         {
-          ESP_LOGE("BT_Keyboard handle_cmd:", "ERROR: FEATURE report does not amount to full bytes! %d (%d)", BTKeyboard::state().report_params.feature_len, BTKeyboard::state().report_params.feature_len & 0x7);
+          ESP_LOGE("BT_Keyboard handle_cmd:", "ERROR: FEATURE report does not amount to full bytes! %d (%d)", bt_keyboard_state()->report_params.feature_len, bt_keyboard_state()->report_params.feature_len & 0x7);
         }
         else
         {
           // SUCCESS!!!
-          int res = handle_report(&BTKeyboard::state().report_params, device);
+          int res = handle_report(&bt_keyboard_state()->report_params, device);
           if (res != 0)
           {
-            BTKeyboard::state().parse_step = PARSE_WAIT_USAGE_PAGE;
+            bt_keyboard_state()->parse_step = PARSE_WAIT_USAGE_PAGE;
             return -1;
           }
         }
-        BTKeyboard::state().parse_step = PARSE_WAIT_USAGE_PAGE;
+        bt_keyboard_state()->parse_step = PARSE_WAIT_USAGE_PAGE;
       }
     }
 
     break;
   }
   default:
-    BTKeyboard::state().parse_step = PARSE_WAIT_USAGE_PAGE;
+    bt_keyboard_state()->parse_step = PARSE_WAIT_USAGE_PAGE;
     break;
   }
   return 0;
 }
 
-int BTKeyboard::handle_report(hid_report_params_t *report, esp_hidh_dev_t *device)
+static UNUSED_ATTR int handle_report(hid_report_params_t *report, esp_hidh_dev_t *device)
 {
   if (report->usage_page == HID_USAGE_PAGE_CONSUMER_DEVICE && report->usage == HID_USAGE_CONSUMER_CONTROL)
   {
-    hid_report_multimedia_control *entry = ensure_multimedia_report(device, report->report_id);
-    if (entry == nullptr)
+    hid_report_multimedia_control_t *entry = ensure_multimedia_report(device, report->report_id);
+    if (entry == NULL)
     {
       return -1;
     }
 
-    size_t copy_len = std::min(BTKeyboard::state().temp_usages.len, static_cast<size_t>(BTKeyboard::MAX_MULTIMEDIA_USAGES));
-    memcpy(entry->array_usages, BTKeyboard::state().temp_usages.values, copy_len * sizeof(uint16_t));
+    size_t copy_len = bt_keyboard_state()->temp_usages.len;
+    if (copy_len > BT_KEYBOARD_MAX_MULTIMEDIA_USAGES)
+    {
+      copy_len = BT_KEYBOARD_MAX_MULTIMEDIA_USAGES;
+    }
+    memcpy(entry->array_usages, bt_keyboard_state()->temp_usages.values, copy_len * sizeof(uint16_t));
     entry->array_usages_len = copy_len;
-    entry->array_overflow = (BTKeyboard::state().temp_usages.len > copy_len);
+    entry->array_overflow = (bt_keyboard_state()->temp_usages.len > copy_len);
     entry->contains_array = report->contains_array;
     entry->input_len = report->input_len;
     entry->logical_maximum = report->logical_maximum;
@@ -2051,7 +2440,7 @@ int BTKeyboard::handle_report(hid_report_params_t *report, esp_hidh_dev_t *devic
     entry->report_id = report->report_id;
     entry->usage_maximum = report->usage_maximum;
     entry->usage_minimum = report->usage_minimum;
-    entry->report_count = BTKeyboard::state().report_count;
+    entry->report_count = bt_keyboard_state()->report_count;
 
     if (entry->array_overflow)
     {
@@ -2064,8 +2453,8 @@ int BTKeyboard::handle_report(hid_report_params_t *report, esp_hidh_dev_t *devic
 
   if (report->usage_page == HID_USAGE_PAGE_GENERIC_DESKTOP && report->usage == HID_USAGE_MOUSE)
   {
-    hid_report_mouse *mouse_entry = ensure_mouse_report(device, report->report_id);
-    if (mouse_entry == nullptr)
+    hid_report_mouse_t *mouse_entry = ensure_mouse_report(device, report->report_id);
+    if (mouse_entry == NULL)
     {
       return -1;
     }
@@ -2092,16 +2481,16 @@ int BTKeyboard::handle_report(hid_report_params_t *report, esp_hidh_dev_t *devic
              mouse_entry->mouse_buttons_amount);
   }
 
-  BTKeyboard::state().temp_usages.clear();
-  BTKeyboard::state().usages_count = 0;
+  temp_usage_clear(&bt_keyboard_state()->temp_usages);
+  bt_keyboard_state()->usages_count = 0;
   return 0;
 }
 
-int16_t BTKeyboard::getBits(const void *Data, uint16_t StartBit, uint16_t NumBits)
+static int16_t getBits(const void *Data, uint16_t StartBit, uint16_t NumBits)
 {
 
   // get a pointer to the starting byte...
-  const uint8_t *pData = &(static_cast<const uint8_t *>(Data)[StartBit / 8]);
+  const uint8_t *pData = &(((const uint8_t *)Data)[StartBit / 8]);
 
   uint16_t data;
   uint16_t signBit;
@@ -2150,17 +2539,18 @@ int16_t BTKeyboard::getBits(const void *Data, uint16_t StartBit, uint16_t NumBit
   return data;
 }
 
-void BTKeyboard::set_leds(uint8_t leds)
+void bt_keyboard_set_leds(uint8_t leds)
 {
   LED_DEVICE_MAP_LOCK();
-  for (auto &entry : BTKeyboard::state().led_devices)
+  for (size_t i = 0; i < BT_KEYBOARD_MAX_LED_DEVICES; ++i)
   {
-    if (!entry.in_use || entry.dev == nullptr)
+    led_device_entry_t *entry = &bt_keyboard_state()->led_devices[i];
+    if (!entry->in_use || entry->dev == NULL)
     {
       continue;
     }
 
-    esp_err_t ret = esp_hidh_dev_output_set(entry.dev, entry.map_index, entry.report_id, &leds, 1);
+    esp_err_t ret = esp_hidh_dev_output_set(entry->dev, entry->map_index, entry->report_id, &leds, 1);
     if (ret != ESP_OK)
     {
       ESP_LOGE(TAG, "Failed to set LED state: %s", esp_err_to_name(ret));
