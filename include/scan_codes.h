@@ -2,8 +2,10 @@
 
 #include <cstddef>
 
-namespace esp32_ps2dev {
-namespace scancodes {
+namespace esp32_ps2dev
+{
+namespace scancodes
+{
 
 typedef enum {
     K_A,

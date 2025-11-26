@@ -49,8 +49,7 @@ class PS2dev
 public:
     PS2dev(int clk, int data);
 
-    enum class BusState
-    {
+    enum class BusState {
         IDLE,
         COMMUNICATION_INHIBITED,
         HOST_REQUEST_TO_SEND,
@@ -85,26 +84,22 @@ class PS2Mouse : public PS2dev
 {
 public:
     PS2Mouse(int clk, int data);
-    enum class ResolutionCode : uint8_t
-    {
+    enum class ResolutionCode : uint8_t {
         RES_1 = 0x00,
         RES_2 = 0x01,
         RES_4 = 0x02,
         RES_8 = 0x03
     };
-    enum class Scale : uint8_t
-    {
+    enum class Scale : uint8_t {
         ONE_ONE = 0,
         TWO_ONE = 1
     };
-    enum class Mode : uint8_t
-    {
+    enum class Mode : uint8_t {
         REMOTE_MODE = 0,
         STREAM_MODE = 1,
         WRAP_MODE = 2
     };
-    enum class Command : uint8_t
-    {
+    enum class Command : uint8_t {
         RESET = 0xFF,
         RESEND = 0xFE,
         ERROR = 0xFC,
@@ -125,8 +120,7 @@ public:
         SET_SCALING_1_1 = 0xE6,
         SELF_TEST_PASSED = 0xAA,
     };
-    enum class Button : uint8_t
-    {
+    enum class Button : uint8_t {
         LEFT,
         RIGHT,
         MIDDLE,
@@ -180,8 +174,7 @@ class PS2Keyboard : public PS2dev
 public:
     PS2Keyboard(int clk, int data);
     int reply_to_host(uint8_t host_cmd);
-    enum class Command
-    {
+    enum class Command {
         RESET = 0xFF,
         RESEND = 0xFE,
         ACK = 0xFA,
@@ -209,8 +202,7 @@ public:
         KEYBOARD_LED_CAPSLOCK = 1 << 2,
     };
 
-    struct KeyBehavior
-    {
+    struct KeyBehavior {
         bool make = true;
         bool break_code = true;
         bool typematic = true;
@@ -232,12 +224,29 @@ public:
     void keyHid_send(uint8_t btkey, bool keyDown);
     void keyHid_send_CCONTROL(uint16_t btkey, bool keyDown);
     bool allows_typematic(uint8_t hid_code) const;
-    uint16_t get_typematic_delay_ms() const { return _typematic_delay_ms; }
-    uint16_t get_typematic_cycle_ms() const { return _typematic_cycle_ms; }
-    uint8_t get_typematic_config() const { return _typematic_config; }
+    uint16_t get_typematic_delay_ms() const
+    {
+        return _typematic_delay_ms;
+    }
+    uint16_t get_typematic_cycle_ms() const
+    {
+        return _typematic_cycle_ms;
+    }
+    uint8_t get_typematic_config() const
+    {
+        return _typematic_config;
+    }
 
-    void set_leds_callback(_leds_callback cb) { leds_callback = cb; }
-    void trigger_leds_callback(uint8_t leds) { if (leds_callback != nullptr) leds_callback(leds); }
+    void set_leds_callback(_leds_callback cb)
+    {
+        leds_callback = cb;
+    }
+    void trigger_leds_callback(uint8_t leds)
+    {
+        if (leds_callback != nullptr) {
+            leds_callback(leds);
+        }
+    }
 
 protected:
     bool _data_reporting_enabled = true;

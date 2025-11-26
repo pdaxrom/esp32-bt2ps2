@@ -25,8 +25,7 @@ constexpr void assign_key(std::array<int16_t, 256> &map, uint8_t hid, scancodes:
 constexpr std::array<int16_t, 256> build_hid_lookup()
 {
     std::array<int16_t, 256> map{};
-    for (auto &entry : map)
-    {
+    for (auto &entry : map) {
         entry = INVALID_KEY;
     }
 
@@ -148,8 +147,7 @@ constexpr std::array<int16_t, 256> build_hid_lookup()
 
 constexpr std::array<int16_t, 256> HID_TO_PS2_LOOKUP = build_hid_lookup();
 
-struct ConsumerMapping
-{
+struct ConsumerMapping {
     uint16_t usage;
     scancodes::Key key;
 };
@@ -171,10 +169,8 @@ constexpr ConsumerMapping CONSUMER_MAPPINGS[] = {
 
 bool map_consumer_usage(uint16_t usage, scancodes::Key &out_key)
 {
-    for (const auto &entry : CONSUMER_MAPPINGS)
-    {
-        if (entry.usage == usage)
-        {
+    for (const auto &entry : CONSUMER_MAPPINGS) {
+        if (entry.usage == usage) {
             out_key = entry.key;
             return true;
         }
@@ -184,10 +180,8 @@ bool map_consumer_usage(uint16_t usage, scancodes::Key &out_key)
 
 bool key_from_set3_code(uint8_t code, scancodes::Key &out_key)
 {
-    for (size_t idx = 0; idx < scancodes::KEY_COUNT; ++idx)
-    {
-        if (scancodes::MAKE_SET3_CODES_LEN[idx] == 1 && scancodes::MAKE_SET3_CODES[idx][0] == code)
-        {
+    for (size_t idx = 0; idx < scancodes::KEY_COUNT; ++idx) {
+        if (scancodes::MAKE_SET3_CODES_LEN[idx] == 1 && scancodes::MAKE_SET3_CODES[idx][0] == code) {
             out_key = static_cast<scancodes::Key>(idx);
             return true;
         }
@@ -218,7 +212,8 @@ constexpr uint16_t RATE_CYCLE_TABLE[32] = {
     33, 37, 40, 46, 50, 54, 58, 63,
     67, 72, 77, 83, 90, 96, 105, 112,
     125, 133, 143, 154, 167, 182, 200, 222,
-    250, 286, 313, 333, 370, 400, 435, 476};
+    250, 286, 313, 333, 370, 400, 435, 476
+};
 constexpr uint16_t DELAY_TABLE[4] = {250, 500, 750, 1000};
 } // namespace
 
@@ -236,12 +231,9 @@ BaseType_t xTaskCreateUniversal(TaskFunction_t pxTaskCode,
                                 const BaseType_t xCoreID)
 {
 #ifndef CONFIG_FREERTOS_UNICORE
-    if (xCoreID >= 0 && xCoreID < 2)
-    {
+    if (xCoreID >= 0 && xCoreID < 2) {
         return xTaskCreatePinnedToCore(pxTaskCode, pcName, usStackDepth, pvParameters, uxPriority, pxCreatedTask, xCoreID);
-    }
-    else
-    {
+    } else {
 #endif
         return xTaskCreate(pxTaskCode, pcName, usStackDepth, pvParameters, uxPriority, pxCreatedTask);
 #ifndef CONFIG_FREERTOS_UNICORE
@@ -276,18 +268,15 @@ unsigned long IRAM_ATTR micros()
 void IRAM_ATTR delayMicroseconds(uint32_t us)
 {
     uint32_t m = micros();
-    if (us)
-    {
+    if (us) {
         uint32_t e = (m + us);
-        if (m > e)
-        { // overflow
-            while (micros() > e)
-            {
+        if (m > e) {
+            // overflow
+            while (micros() > e) {
                 NOP();
             }
         }
-        while (micros() < e)
-        {
+        while (micros() < e) {
             NOP();
         }
     }
@@ -303,12 +292,9 @@ PS2dev::PS2dev(int clk, int data)
 
 void PS2dev::config(UBaseType_t task_priority, BaseType_t task_core)
 {
-    if (task_priority < 1)
-    {
+    if (task_priority < 1) {
         task_priority = 1;
-    }
-    else if (task_priority > configMAX_PRIORITIES)
-    {
+    } else if (task_priority > configMAX_PRIORITIES) {
         task_priority = configMAX_PRIORITIES - 1;
     }
     _config_task_priority = task_priority;
@@ -321,8 +307,10 @@ void PS2dev::begin(BaseType_t core = DEFAULT_TASK_CORE)
     gohi(_ps2data);
     _mutex_bus = xSemaphoreCreateMutex();
     _queue_packet = xQueueCreate(PACKET_QUEUE_LENGTH, sizeof(PS2Packet));
-    xTaskCreateUniversal(_taskfn_process_host_request, "process_host_request", 4096, this, _config_task_priority, &_task_process_host_request, core);
-    xTaskCreateUniversal(_taskfn_send_packet, "send_packet", 4096, this, _config_task_priority - 1, &_task_send_packet, core);
+    xTaskCreateUniversal(_taskfn_process_host_request, "process_host_request", 4096, this, _config_task_priority,
+                         &_task_process_host_request, core);
+    xTaskCreateUniversal(_taskfn_send_packet, "send_packet", 4096, this, _config_task_priority - 1, &_task_send_packet,
+                         core);
 }
 
 void PS2dev::gohi(int pin)
@@ -346,8 +334,7 @@ int PS2dev::write(unsigned char data)
     unsigned char i;
     unsigned char parity = 1;
 
-    if (get_bus_state() != BusState::IDLE)
-    {
+    if (get_bus_state() != BusState::IDLE) {
         return -1;
     }
 
@@ -362,14 +349,10 @@ int PS2dev::write(unsigned char data)
     gohi(_ps2clk);
     delayMicroseconds(CLK_QUATER_PERIOD_MICROS);
 
-    for (i = 0; i < 8; i++)
-    {
-        if (data & 0x01)
-        {
+    for (i = 0; i < 8; i++) {
+        if (data & 0x01) {
             gohi(_ps2data);
-        }
-        else
-        {
+        } else {
             golo(_ps2data);
         }
         delayMicroseconds(CLK_QUATER_PERIOD_MICROS);
@@ -382,12 +365,9 @@ int PS2dev::write(unsigned char data)
         data = data >> 1;
     }
     // parity bit
-    if (parity)
-    {
+    if (parity) {
         gohi(_ps2data);
-    }
-    else
-    {
+    } else {
         golo(_ps2data);
     }
     delayMicroseconds(CLK_QUATER_PERIOD_MICROS);
@@ -411,10 +391,8 @@ int PS2dev::write(unsigned char data)
 int PS2dev::write_wait_idle(uint8_t data, uint64_t timeout_micros)
 {
     uint64_t start_time = micros();
-    while (get_bus_state() != BusState::IDLE)
-    {
-        if (micros() - start_time > timeout_micros)
-        {
+    while (get_bus_state() != BusState::IDLE) {
+        if (micros() - start_time > timeout_micros) {
             return -1;
         }
     }
@@ -430,10 +408,10 @@ int PS2dev::read(unsigned char *value, uint64_t timeout_ms)
 
     // wait for data line to go low and clock line to go high (or timeout)
     unsigned long waiting_since = millis();
-    while (get_bus_state() != BusState::HOST_REQUEST_TO_SEND)
-    {
-        if ((millis() - waiting_since) > timeout_ms)
+    while (get_bus_state() != BusState::HOST_REQUEST_TO_SEND) {
+        if ((millis() - waiting_since) > timeout_ms) {
             return -1;
+        }
         delay(1);
     }
 
@@ -446,15 +424,11 @@ int PS2dev::read(unsigned char *value, uint64_t timeout_ms)
     gohi(_ps2clk);
     delayMicroseconds(CLK_QUATER_PERIOD_MICROS);
 
-    while (bit < 0x0100)
-    {
-        if (digitalRead(_ps2data) == HIGH)
-        {
+    while (bit < 0x0100) {
+        if (digitalRead(_ps2data) == HIGH) {
             data = data | bit;
             calculated_parity = calculated_parity ^ 1;
-        }
-        else
-        {
+        } else {
             calculated_parity = calculated_parity ^ 0;
         }
 
@@ -470,8 +444,7 @@ int PS2dev::read(unsigned char *value, uint64_t timeout_ms)
     // already done the delay for the parity bit
 
     // parity bit
-    if (digitalRead(_ps2data) == HIGH)
-    {
+    if (digitalRead(_ps2data) == HIGH) {
         received_parity = 1;
     }
 
@@ -494,33 +467,34 @@ int PS2dev::read(unsigned char *value, uint64_t timeout_ms)
 
     *value = data & 0x00FF;
 
-    if (received_parity == calculated_parity)
-    {
+    if (received_parity == calculated_parity) {
         return 0;
-    }
-    else
-    {
+    } else {
         return -2;
     }
 }
 PS2dev::BusState PS2dev::get_bus_state()
 {
-    if (digitalRead(_ps2clk) == LOW)
-    {
+    if (digitalRead(_ps2clk) == LOW) {
         return BusState::COMMUNICATION_INHIBITED;
-    }
-    else if (digitalRead(_ps2data) == LOW)
-    {
+    } else if (digitalRead(_ps2data) == LOW) {
         return BusState::HOST_REQUEST_TO_SEND;
-    }
-    else
-    {
+    } else {
         return BusState::IDLE;
     }
 }
-SemaphoreHandle_t PS2dev::get_bus_mutex_handle() { return _mutex_bus; }
-QueueHandle_t PS2dev::get_packet_queue_handle() { return _queue_packet; }
-int PS2dev::send_packet(PS2Packet *packet) { return (xQueueSend(_queue_packet, packet, 0) == pdTRUE) ? 0 : -1; }
+SemaphoreHandle_t PS2dev::get_bus_mutex_handle()
+{
+    return _mutex_bus;
+}
+QueueHandle_t PS2dev::get_packet_queue_handle()
+{
+    return _queue_packet;
+}
+int PS2dev::send_packet(PS2Packet *packet)
+{
+    return (xQueueSend(_queue_packet, packet, 0) == pdTRUE) ? 0 : -1;
+}
 
 PS2Mouse::PS2Mouse(int clk, int data) : PS2dev(clk, data) {}
 void PS2Mouse::begin()
@@ -534,15 +508,14 @@ void PS2Mouse::begin()
     write(0x00);
     xSemaphoreGive(_mutex_bus);
 
-    xTaskCreatePinnedToCore(_taskfn_poll_mouse_count, "PS2Mouse", 4096, this, _config_task_priority - 1, &_task_poll_mouse_count, DEFAULT_TASK_CORE_MOUSE);
+    xTaskCreatePinnedToCore(_taskfn_poll_mouse_count, "PS2Mouse", 4096, this, _config_task_priority - 1,
+                            &_task_poll_mouse_count, DEFAULT_TASK_CORE_MOUSE);
 }
 int PS2Mouse::reply_to_host(uint8_t host_cmd)
 {
     uint8_t val;
-    if (_mode == Mode::WRAP_MODE)
-    {
-        switch ((Command)host_cmd)
-        {
+    if (_mode == Mode::WRAP_MODE) {
+        switch ((Command)host_cmd) {
         case Command::SET_WRAP_MODE: // set wrap mode
 #if defined(_ESP32_PS2DEV_DEBUG_)
             ESP_LOGI(TAG, "PS2Mouse::reply_to_host: (WRAP_MODE) Set wrap mode command received");
@@ -564,19 +537,20 @@ int PS2Mouse::reply_to_host(uint8_t host_cmd)
         return 0;
     }
 
-    switch ((Command)host_cmd)
-    {
+    switch ((Command)host_cmd) {
     case Command::RESET: // reset
 #if defined(_ESP32_PS2DEV_DEBUG_)
         ESP_LOGI(TAG, "PS2Mouse::reply_to_host: Reset command received");
 #endif
         ack();
         // the while loop lets us wait for the host to be ready
-        while (write(0xAA) != 0)
+        while (write(0xAA) != 0) {
             delay(1);
+        }
         delayMicroseconds(BYTE_INTERVAL_MICROS);
-        while (write(0x00) != 0)
+        while (write(0x00) != 0) {
             delay(1);
+        }
         _has_wheel = false;
         _has_4th_and_5th_buttons = false;
         _sample_rate = 100;
@@ -623,10 +597,8 @@ int PS2Mouse::reply_to_host(uint8_t host_cmd)
         break;
     case Command::SET_SAMPLE_RATE: // set sample rate
         ack();
-        if (read(&val) == 0)
-        {
-            switch (val)
-            {
+        if (read(&val) == 0) {
+            switch (val) {
             case 10:
             case 20:
             case 40:
@@ -657,24 +629,20 @@ int PS2Mouse::reply_to_host(uint8_t host_cmd)
         ESP_LOGI(TAG, "PS2Mouse::reply_to_host: Get device id command received");
 #endif
         ack();
-        if (_last_sample_rate[0] == 200 && _last_sample_rate[1] == 100 && _last_sample_rate[2] == 80)
-        {
+        if (_last_sample_rate[0] == 200 && _last_sample_rate[1] == 100 && _last_sample_rate[2] == 80) {
             write(0x03); // Intellimouse with wheel
 #if defined(_ESP32_PS2DEV_DEBUG_)
             ESP_LOGI(TAG, "PS2Mouse::reply_to_host: Act as Intellimouse with wheel.");
 #endif
             _has_wheel = true;
-        }
-        else if (_last_sample_rate[0] == 200 && _last_sample_rate[1] == 200 && _last_sample_rate[2] == 80 && _has_wheel == true)
-        {
+        } else if (_last_sample_rate[0] == 200 && _last_sample_rate[1] == 200 && _last_sample_rate[2] == 80
+                   && _has_wheel == true) {
             write(0x04); // Intellimouse with 4th and 5th buttons
 #if defined(_ESP32_PS2DEV_DEBUG_)
             ESP_LOGI(TAG, "PS2Mouse::reply_to_host: Act as Intellimouse with 4th and 5th buttons.");
 #endif
             _has_4th_and_5th_buttons = true;
-        }
-        else
-        {
+        } else {
             write(0x00); // Standard PS/2 mouse
 #if defined(_ESP32_PS2DEV_DEBUG_)
             ESP_LOGI(TAG, "PS2Mouse::reply_to_host: Act as standard PS/2 mouse.");
@@ -690,8 +658,9 @@ int PS2Mouse::reply_to_host(uint8_t host_cmd)
 #endif
         // ack();
         delayMicroseconds(BYTE_INTERVAL_MICROS);
-        while (write(0xFA) != 0)
+        while (write(0xFA) != 0) {
             delay(1);
+        }
         delayMicroseconds(BYTE_INTERVAL_MICROS);
         reset_counter();
         _mode = Mode::REMOTE_MODE;
@@ -736,8 +705,7 @@ int PS2Mouse::reply_to_host(uint8_t host_cmd)
         break;
     case Command::SET_RESOLUTION: // set resolution
         ack();
-        if (read(&val) == 0 && val <= 3)
-        {
+        if (read(&val) == 0 && val <= 3) {
             _resolution = (ResolutionCode)val;
 #if defined(_ESP32_PS2DEV_DEBUG_)
             ESP_LOGI(TAG, "PS2Mouse::reply_to_host: Set resolution command received: %x", val);
@@ -763,8 +731,9 @@ int PS2Mouse::reply_to_host(uint8_t host_cmd)
         break;
     default:
         delayMicroseconds(BYTE_INTERVAL_MICROS);
-        while ((write(0xFE) != 0))
+        while ((write(0xFE) != 0)) {
             delay(1);
+        }
 #if defined(_ESP32_PS2DEV_DEBUG_)
         ESP_LOGI(TAG, "PS2Mouse::reply_to_host: Unknown command received: %x", host_cmd);
         //_ESP32_PS2DEV_DEBUG_.println(host_cmd, HEX);
@@ -773,9 +742,18 @@ int PS2Mouse::reply_to_host(uint8_t host_cmd)
     }
     return 0;
 }
-bool PS2Mouse::has_wheel() { return _has_wheel; }
-bool PS2Mouse::has_4th_and_5th_buttons() { return _has_4th_and_5th_buttons; }
-bool PS2Mouse::data_reporting_enabled() { return _data_reporting_enabled; }
+bool PS2Mouse::has_wheel()
+{
+    return _has_wheel;
+}
+bool PS2Mouse::has_4th_and_5th_buttons()
+{
+    return _has_4th_and_5th_buttons;
+}
+bool PS2Mouse::data_reporting_enabled()
+{
+    return _data_reporting_enabled;
+}
 void PS2Mouse::reset_counter()
 {
     _count_x = 0;
@@ -784,7 +762,10 @@ void PS2Mouse::reset_counter()
     _count_x_overflow = 0;
     _count_y_overflow = 0;
 }
-uint8_t PS2Mouse::get_sample_rate() { return _sample_rate; }
+uint8_t PS2Mouse::get_sample_rate()
+{
+    return _sample_rate;
+}
 void PS2Mouse::move(int16_t x, int16_t y, int8_t wheel)
 {
     _count_x += x;
@@ -794,8 +775,7 @@ void PS2Mouse::move(int16_t x, int16_t y, int8_t wheel)
 }
 void PS2Mouse::press(Button button)
 {
-    switch (button)
-    {
+    switch (button) {
     case Button::LEFT:
         _button_left = 1;
         break;
@@ -818,8 +798,7 @@ void PS2Mouse::press(Button button)
 }
 void PS2Mouse::release(Button button)
 {
-    switch (button)
-    {
+    switch (button) {
     case Button::LEFT:
         _button_left = 0;
         break;
@@ -849,15 +828,12 @@ void PS2Mouse::click(Button button)
 void PS2Mouse::_report()
 {
     PS2Packet packet;
-    if (_scale == Scale::TWO_ONE)
-    {
+    if (_scale == Scale::TWO_ONE) {
         int16_t *p[2] = {&_count_x, &_count_y};
-        for (size_t i = 0; i < 2; i++)
-        {
+        for (size_t i = 0; i < 2; i++) {
             bool positive = *p[i] >= 0;
             uint16_t abs_value = positive ? *p[i] : -*p[i];
-            switch (abs_value)
-            {
+            switch (abs_value) {
             case 1:
                 abs_value = 1;
                 break;
@@ -877,36 +853,28 @@ void PS2Mouse::_report()
                 abs_value *= 2;
                 break;
             }
-            if (!positive)
+            if (!positive) {
                 *p[i] = -abs_value;
+            }
         }
     }
-    if (_count_x > 255)
-    {
+    if (_count_x > 255) {
         _count_x_overflow = 1;
         _count_x = 255;
-    }
-    else if (_count_x < -255)
-    {
+    } else if (_count_x < -255) {
         _count_x_overflow = 1;
         _count_x = -255;
     }
-    if (_count_y > 255)
-    {
+    if (_count_y > 255) {
         _count_y_overflow = 1;
         _count_y = 255;
-    }
-    else if (_count_y < -255)
-    {
+    } else if (_count_y < -255) {
         _count_y_overflow = 1;
         _count_y = -255;
     }
-    if (_count_z > 7)
-    {
+    if (_count_z > 7) {
         _count_z = 7;
-    }
-    else if (_count_z < -8)
-    {
+    } else if (_count_z < -8) {
         _count_z = -8;
     }
 
@@ -915,12 +883,9 @@ void PS2Mouse::_report()
             ((_count_y < 0) << 5) | (_count_x_overflow << 6) | (_count_y_overflow << 7);
     packet.data[1] = _count_x & 0xFF;
     packet.data[2] = _count_y & 0xFF;
-    if (_has_wheel && !_has_4th_and_5th_buttons)
-    {
+    if (_has_wheel && !_has_4th_and_5th_buttons) {
         packet.data[3] = _count_z & 0xFF;
-    }
-    else if (_has_wheel && _has_4th_and_5th_buttons)
-    {
+    } else if (_has_wheel && _has_4th_and_5th_buttons) {
         packet.data[3] = (_count_z & 0x0F) | ((_button_4th) << 4) | ((_button_5th) << 5);
     }
 
@@ -954,19 +919,18 @@ void PS2Keyboard::begin()
 }
 void PS2Keyboard::apply_behavior_to_all(const KeyBehavior &behavior)
 {
-    for (auto &entry : _key_behaviors)
+    for (auto &entry : _key_behaviors) {
         entry = behavior;
+    }
 }
 void PS2Keyboard::apply_default_key_behaviors()
 {
     apply_behavior_to_all(BEHAVIOR_TYP_MAKE_BREAK);
-    if (_scan_code_set != 3)
-    {
+    if (_scan_code_set != 3) {
         return;
     }
     const auto apply_for_codes = [this](const auto &codes, const KeyBehavior &behavior) {
-        for (auto code : codes)
-        {
+        for (auto code : codes) {
             configure_specific_key(code, behavior);
         }
     };
@@ -988,8 +952,9 @@ bool PS2Keyboard::allows_typematic_for_key(scancodes::Key key) const
 bool PS2Keyboard::allows_typematic(uint8_t hid_code) const
 {
     int16_t mapped = HID_TO_PS2_LOOKUP[hid_code];
-    if (mapped == INVALID_KEY)
+    if (mapped == INVALID_KEY) {
         return false;
+    }
     return _key_behaviors[static_cast<size_t>(mapped)].typematic;
 }
 
@@ -997,37 +962,45 @@ void PS2Keyboard::update_typematic(uint8_t config)
 {
     _typematic_config = config;
     uint8_t delay_index = (config >> 5) & 0x03;
-    if (delay_index > 3)
+    if (delay_index > 3) {
         delay_index = 3;
+    }
     _typematic_delay_ms = DELAY_TABLE[delay_index];
     uint8_t rate_index = config & 0x1F;
     _typematic_cycle_ms = RATE_CYCLE_TABLE[rate_index];
 }
 void PS2Keyboard::configure_specific_key(uint8_t scan_code, const KeyBehavior &behavior)
 {
-    if (_scan_code_set != 3)
-    {
+    if (_scan_code_set != 3) {
         return;
     }
     scancodes::Key key;
-    if (key_from_set3_code(scan_code, key))
-    {
+    if (key_from_set3_code(scan_code, key)) {
         set_key_behavior(key, behavior);
-    }
-    else
-    {
+    } else {
         ESP_LOGW(TAG, "Unknown Set 3 key code 0x%02x for make-only configuration", scan_code);
     }
 }
-bool PS2Keyboard::data_reporting_enabled() { return _data_reporting_enabled; }
-bool PS2Keyboard::is_scroll_lock_led_on() { return _led_scroll_lock; }
-bool PS2Keyboard::is_num_lock_led_on() { return _led_num_lock; }
-bool PS2Keyboard::is_caps_lock_led_on() { return _led_caps_lock; }
+bool PS2Keyboard::data_reporting_enabled()
+{
+    return _data_reporting_enabled;
+}
+bool PS2Keyboard::is_scroll_lock_led_on()
+{
+    return _led_scroll_lock;
+}
+bool PS2Keyboard::is_num_lock_led_on()
+{
+    return _led_num_lock;
+}
+bool PS2Keyboard::is_caps_lock_led_on()
+{
+    return _led_caps_lock;
+}
 int PS2Keyboard::reply_to_host(uint8_t host_cmd)
 {
     uint8_t val;
-    switch ((Command)host_cmd)
-    {
+    switch ((Command)host_cmd) {
     case Command::RESET: // reset
 #if defined(_ESP32_PS2DEV_DEBUG_)
         ESP_LOGI(TAG, "PS2Keyboard::reply_to_host: Reset command received");
@@ -1035,9 +1008,11 @@ int PS2Keyboard::reply_to_host(uint8_t host_cmd)
         // the while loop lets us wait for the host to be ready
         _data_reporting_enabled = false;
         ack(); // ack() provides delay, some systems need it
-        while (write((uint8_t)Command::BAT_SUCCESS) != 0)
+        while (write((uint8_t)Command::BAT_SUCCESS) != 0) {
             delay(1);
-        _data_reporting_enabled = true; // some systems don't enable data reporting after issuing a RESET command, so we do it by default
+        }
+        _data_reporting_enabled =
+                true; // some systems don't enable data reporting after issuing a RESET command, so we do it by default
         _scan_code_set = 2;
         apply_default_key_behaviors();
         break;
@@ -1074,8 +1049,7 @@ int PS2Keyboard::reply_to_host(uint8_t host_cmd)
         ESP_LOGI(TAG, "PS2Keyboard::reply_to_host: Set typematic rate command received");
 #endif // _ESP32_PS2DEV_DEBUG_
         ack();
-        if (!read(&val))
-        {
+        if (!read(&val)) {
             ack();
             update_typematic(val);
         }
@@ -1085,10 +1059,12 @@ int PS2Keyboard::reply_to_host(uint8_t host_cmd)
         ESP_LOGI(TAG, "PS2Keyboard::reply_to_host: Get device id command received");
 #endif // _ESP32_PS2DEV_DEBUG_
         ack();
-        while (write(0xAB) != 0)
-            delay(1); // ensure ID gets writed, some hosts may be sensitive
-        while (write(0x83) != 0)
-            delay(1); // this is critical for combined ports (they decide mouse/kb on this)
+        while (write(0xAB) != 0) {
+            delay(1);    // ensure ID gets writed, some hosts may be sensitive
+        }
+        while (write(0x83) != 0) {
+            delay(1);    // this is critical for combined ports (they decide mouse/kb on this)
+        }
         break;
     case Command::SET_SCAN_CODE_SET: // set scan code set
 #if defined(_ESP32_PS2DEV_DEBUG_)
@@ -1122,14 +1098,15 @@ int PS2Keyboard::reply_to_host(uint8_t host_cmd)
         ESP_LOGI(TAG, "PS2Keyboard::reply_to_host: Set/reset LEDs command received");
 #endif // _ESP32_PS2DEV_DEBUG_
         delayMicroseconds(BYTE_INTERVAL_MICROS);
-        while (write(0xFA) != 0)
+        while (write(0xFA) != 0) {
             delay(1);
+        }
         delayMicroseconds(BYTE_INTERVAL_MICROS);
-        if (!read(&val, 10))
-        {
+        if (!read(&val, 10)) {
             delayMicroseconds(BYTE_INTERVAL_MICROS);
-            while (write(0xFA) != 0)
+            while (write(0xFA) != 0) {
                 delay(1);
+            }
             delayMicroseconds(BYTE_INTERVAL_MICROS);
             _led_scroll_lock = ((val & KeyLed::KEYBOARD_LED_SCROLLLOCK) != 0);
             _led_num_lock = ((val & KeyLed::KEYBOARD_LED_NUMLOCK) != 0);
@@ -1143,8 +1120,7 @@ int PS2Keyboard::reply_to_host(uint8_t host_cmd)
         ESP_LOGI(TAG, "PS2Keyboard::reply_to_host: Set all keys to typematic/autorepeat only");
 #endif // _ESP32_PS2DEV_DEBUG_
         ack();
-        if (_scan_code_set == 3)
-        {
+        if (_scan_code_set == 3) {
             apply_behavior_to_all(BEHAVIOR_TYP_ONLY);
         }
         break;
@@ -1153,8 +1129,7 @@ int PS2Keyboard::reply_to_host(uint8_t host_cmd)
         ESP_LOGI(TAG, "PS2Keyboard::reply_to_host: Set all keys to make/release");
 #endif // _ESP32_PS2DEV_DEBUG_
         ack();
-        if (_scan_code_set == 3)
-        {
+        if (_scan_code_set == 3) {
             apply_behavior_to_all(BEHAVIOR_MAKE_BREAK);
         }
         break;
@@ -1163,8 +1138,7 @@ int PS2Keyboard::reply_to_host(uint8_t host_cmd)
         ESP_LOGI(TAG, "PS2Keyboard::reply_to_host: Set all keys to make only");
 #endif // _ESP32_PS2DEV_DEBUG_
         ack();
-        if (_scan_code_set == 3)
-        {
+        if (_scan_code_set == 3) {
             apply_behavior_to_all(BEHAVIOR_MAKE_ONLY);
         }
         break;
@@ -1173,8 +1147,7 @@ int PS2Keyboard::reply_to_host(uint8_t host_cmd)
         ESP_LOGI(TAG, "PS2Keyboard::reply_to_host: Set all keys to typematic/autorepeat/make/release");
 #endif // _ESP32_PS2DEV_DEBUG_
         ack();
-        if (_scan_code_set == 3)
-        {
+        if (_scan_code_set == 3) {
             apply_behavior_to_all(BEHAVIOR_TYP_MAKE_BREAK);
         }
         break;
@@ -1183,10 +1156,8 @@ int PS2Keyboard::reply_to_host(uint8_t host_cmd)
         ESP_LOGI(TAG, "PS2Keyboard::reply_to_host: Set specific key to typematic/autorepeat only");
 #endif // _ESP32_PS2DEV_DEBUG_
         ack();
-        if (_scan_code_set == 3)
-        {
-            if (!read(&val))
-            {
+        if (_scan_code_set == 3) {
+            if (!read(&val)) {
                 ack();
                 configure_specific_key(val, BEHAVIOR_TYP_ONLY);
             }
@@ -1197,10 +1168,8 @@ int PS2Keyboard::reply_to_host(uint8_t host_cmd)
         ESP_LOGI(TAG, "PS2Keyboard::reply_to_host: Set specific key to make/release");
 #endif // _ESP32_PS2DEV_DEBUG_
         ack();
-        if (_scan_code_set == 3)
-        {
-            if (!read(&val))
-            {
+        if (_scan_code_set == 3) {
+            if (!read(&val)) {
                 ack();
                 configure_specific_key(val, BEHAVIOR_MAKE_BREAK);
             }
@@ -1211,10 +1180,8 @@ int PS2Keyboard::reply_to_host(uint8_t host_cmd)
         ESP_LOGI(TAG, "PS2Keyboard::reply_to_host: Set specific key to make only");
 #endif // _ESP32_PS2DEV_DEBUG_
         ack();
-        if (_scan_code_set == 3)
-        {
-            if (!read(&val))
-            {
+        if (_scan_code_set == 3) {
+            if (!read(&val)) {
                 ack();
                 configure_specific_key(val, BEHAVIOR_MAKE_ONLY);
             }
@@ -1233,30 +1200,32 @@ int PS2Keyboard::reply_to_host(uint8_t host_cmd)
 }
 void PS2Keyboard::keydown(scancodes::Key key)
 {
-    if (!_data_reporting_enabled)
+    if (!_data_reporting_enabled) {
         return;
+    }
     const auto &behavior = behavior_for_key(key);
-    if (!behavior.make)
+    if (!behavior.make) {
         return;
+    }
     PS2Packet packet;
     packet.len = (_scan_code_set == 3) ? scancodes::MAKE_SET3_CODES_LEN[key] : scancodes::MAKE_CODES_LEN[key];
-    for (uint8_t i = 0; i < packet.len; i++)
-    {
+    for (uint8_t i = 0; i < packet.len; i++) {
         packet.data[i] = (_scan_code_set == 3) ? scancodes::MAKE_SET3_CODES[key][i] : scancodes::MAKE_CODES[key][i];
     }
     send_packet(&packet);
 }
 void PS2Keyboard::keyup(scancodes::Key key)
 {
-    if (!_data_reporting_enabled)
+    if (!_data_reporting_enabled) {
         return;
+    }
     const auto &behavior = behavior_for_key(key);
-    if (!behavior.break_code)
+    if (!behavior.break_code) {
         return;
+    }
     PS2Packet packet;
     packet.len = (_scan_code_set == 3) ? scancodes::BREAK_SET3_CODES_LEN[key] : scancodes::BREAK_CODES_LEN[key];
-    for (uint8_t i = 0; i < packet.len; i++)
-    {
+    for (uint8_t i = 0; i < packet.len; i++) {
         packet.data[i] = (_scan_code_set == 3) ? scancodes::BREAK_SET3_CODES[key][i] : scancodes::BREAK_CODES[key][i];
     }
     send_packet(&packet);
@@ -1270,14 +1239,12 @@ void PS2Keyboard::type(scancodes::Key key)
 void PS2Keyboard::type(std::initializer_list<scancodes::Key> keys)
 {
     std::stack<scancodes::Key> stack;
-    for (auto key : keys)
-    {
+    for (auto key : keys) {
         keydown(key);
         stack.push(key);
         delay(10);
     }
-    while (!stack.empty())
-    {
+    while (!stack.empty()) {
         keyup(stack.top());
         stack.pop();
         delay(10);
@@ -1286,13 +1253,11 @@ void PS2Keyboard::type(std::initializer_list<scancodes::Key> keys)
 void PS2Keyboard::type(const char *str)
 {
     size_t i = 0;
-    while (str[i] != '\0')
-    {
+    while (str[i] != '\0') {
         char c = str[i];
         scancodes::Key key;
         bool shift = false;
-        switch (c)
-        {
+        switch (c) {
         case '\b':
             key = scancodes::Key::K_BACKSPACE;
             break;
@@ -1621,16 +1586,13 @@ void PS2Keyboard::type(const char *str)
             continue;
             break;
         }
-        if (shift)
-        {
+        if (shift) {
             keydown(scancodes::Key::K_LSHIFT);
             delay(10);
             type(key);
             delay(10);
             keyup(scancodes::Key::K_LSHIFT);
-        }
-        else
-        {
+        } else {
             type(key);
         }
         i++;
@@ -1640,14 +1602,11 @@ void PS2Keyboard::type(const char *str)
 void _taskfn_process_host_request(void *arg)
 {
     PS2dev *ps2dev = (PS2dev *)arg;
-    while (true)
-    {
+    while (true) {
         xSemaphoreTake(ps2dev->get_bus_mutex_handle(), portMAX_DELAY);
-        if (ps2dev->get_bus_state() == PS2dev::BusState::HOST_REQUEST_TO_SEND)
-        {
+        if (ps2dev->get_bus_state() == PS2dev::BusState::HOST_REQUEST_TO_SEND) {
             uint8_t host_cmd;
-            if (ps2dev->read(&host_cmd) == 0)
-            {
+            if (ps2dev->read(&host_cmd) == 0) {
                 ps2dev->reply_to_host(host_cmd);
             }
         }
@@ -1659,15 +1618,12 @@ void _taskfn_process_host_request(void *arg)
 void _taskfn_send_packet(void *arg)
 {
     PS2dev *ps2dev = (PS2dev *)arg;
-    while (true)
-    {
+    while (true) {
         PS2Packet packet;
-        if (xQueueReceive(ps2dev->get_packet_queue_handle(), &packet, portMAX_DELAY) == pdTRUE)
-        {
+        if (xQueueReceive(ps2dev->get_packet_queue_handle(), &packet, portMAX_DELAY) == pdTRUE) {
             xSemaphoreTake(ps2dev->get_bus_mutex_handle(), portMAX_DELAY);
             delayMicroseconds(BYTE_INTERVAL_MICROS);
-            for (int i = 0; i < packet.len; i++)
-            {
+            for (int i = 0; i < packet.len; i++) {
                 ps2dev->write_wait_idle(packet.data[i]);
                 delayMicroseconds(BYTE_INTERVAL_MICROS);
             }
@@ -1679,11 +1635,9 @@ void _taskfn_send_packet(void *arg)
 void _taskfn_poll_mouse_count(void *arg)
 {
     PS2Mouse *ps2mouse = (PS2Mouse *)arg;
-    while (true)
-    {
+    while (true) {
         xTaskNotifyWait(0, 0, NULL, portMAX_DELAY);
-        if (ps2mouse->data_reporting_enabled())
-        {
+        if (ps2mouse->data_reporting_enabled()) {
             ps2mouse->_report();
         }
         delay(1000 / ps2mouse->get_sample_rate());
@@ -1694,30 +1648,30 @@ void _taskfn_poll_mouse_count(void *arg)
 void PS2Keyboard::keyHid_send(uint8_t btkey, bool keyDown)
 {
     int16_t mapped = HID_TO_PS2_LOOKUP[btkey];
-    if (mapped == INVALID_KEY)
-    {
+    if (mapped == INVALID_KEY) {
         return;
     }
 
     scancodes::Key key = static_cast<scancodes::Key>(mapped);
-    if (keyDown)
+    if (keyDown) {
         keydown(key);
-    else
+    } else {
         keyup(key);
+    }
 }
 
 void PS2Keyboard::keyHid_send_CCONTROL(uint16_t btkey, bool keyDown)
 {
     scancodes::Key key;
-    if (!map_consumer_usage(btkey, key))
-    {
+    if (!map_consumer_usage(btkey, key)) {
         return;
     }
 
-    if (keyDown)
+    if (keyDown) {
         keydown(key);
-    else
+    } else {
         keyup(key);
+    }
 }
 
 } // namespace esp32_ps2dev

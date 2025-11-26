@@ -379,7 +379,8 @@ const uint8_t* const MAKE_SET3_CODES[] = {MAKE_SET3_K_A,
                                           MAKE_SET3_K_MEDIA_WWW_FORWARD,
                                           MAKE_SET3_K_MEDIA_WWW_STOP,
                                           MAKE_SET3_K_MEDIA_WWW_REFRESH,
-                                          MAKE_SET3_K_MEDIA_WWW_FAVORITES};
+                                          MAKE_SET3_K_MEDIA_WWW_FAVORITES
+                                         };
 
 const uint8_t MAKE_SET3_CODES_LEN[] = {sizeof(MAKE_SET3_K_A),
                                        sizeof(MAKE_SET3_K_B),
@@ -505,7 +506,8 @@ const uint8_t MAKE_SET3_CODES_LEN[] = {sizeof(MAKE_SET3_K_A),
                                        sizeof(MAKE_SET3_K_MEDIA_WWW_FORWARD),
                                        sizeof(MAKE_SET3_K_MEDIA_WWW_STOP),
                                        sizeof(MAKE_SET3_K_MEDIA_WWW_REFRESH),
-                                       sizeof(MAKE_SET3_K_MEDIA_WWW_FAVORITES)};
+                                       sizeof(MAKE_SET3_K_MEDIA_WWW_FAVORITES)
+                                      };
 
 const uint8_t* const BREAK_SET3_CODES[] = {BREAK_SET3_K_A,
                                            BREAK_SET3_K_B,
@@ -631,7 +633,8 @@ const uint8_t* const BREAK_SET3_CODES[] = {BREAK_SET3_K_A,
                                            BREAK_SET3_K_MEDIA_WWW_FORWARD,
                                            BREAK_SET3_K_MEDIA_WWW_STOP,
                                            BREAK_SET3_K_MEDIA_WWW_REFRESH,
-                                           BREAK_SET3_K_MEDIA_WWW_FAVORITES};
+                                           BREAK_SET3_K_MEDIA_WWW_FAVORITES
+                                          };
 
 const uint8_t BREAK_SET3_CODES_LEN[] = {sizeof(BREAK_SET3_K_A),
                                         sizeof(BREAK_SET3_K_B),
@@ -757,4 +760,5 @@ const uint8_t BREAK_SET3_CODES_LEN[] = {sizeof(BREAK_SET3_K_A),
                                         sizeof(BREAK_SET3_K_MEDIA_WWW_FORWARD),
                                         sizeof(BREAK_SET3_K_MEDIA_WWW_STOP),
                                         sizeof(BREAK_SET3_K_MEDIA_WWW_REFRESH),
-                                        sizeof(BREAK_SET3_K_MEDIA_WWW_FAVORITES)};
+                                        sizeof(BREAK_SET3_K_MEDIA_WWW_FAVORITES)
+                                       };

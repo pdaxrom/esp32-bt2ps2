@@ -382,7 +382,8 @@ const uint8_t* const MAKE_CODES[] = {MAKE_K_A,
                                      MAKE_K_MEDIA_WWW_FORWARD,
                                      MAKE_K_MEDIA_WWW_STOP,
                                      MAKE_K_MEDIA_WWW_REFRESH,
-                                     MAKE_K_MEDIA_WWW_FAVORITES};
+                                     MAKE_K_MEDIA_WWW_FAVORITES
+                                    };
 
 const uint8_t MAKE_CODES_LEN[] = {sizeof(MAKE_K_A),
                                   sizeof(MAKE_K_B),
@@ -508,7 +509,8 @@ const uint8_t MAKE_CODES_LEN[] = {sizeof(MAKE_K_A),
                                   sizeof(MAKE_K_MEDIA_WWW_FORWARD),
                                   sizeof(MAKE_K_MEDIA_WWW_STOP),
                                   sizeof(MAKE_K_MEDIA_WWW_REFRESH),
-                                  sizeof(MAKE_K_MEDIA_WWW_FAVORITES)};
+                                  sizeof(MAKE_K_MEDIA_WWW_FAVORITES)
+                                 };
 
 const uint8_t* const BREAK_CODES[] = {BREAK_K_A,
                                       BREAK_K_B,
@@ -634,7 +636,8 @@ const uint8_t* const BREAK_CODES[] = {BREAK_K_A,
                                       BREAK_K_MEDIA_WWW_FORWARD,
                                       BREAK_K_MEDIA_WWW_STOP,
                                       BREAK_K_MEDIA_WWW_REFRESH,
-                                      BREAK_K_MEDIA_WWW_FAVORITES};
+                                      BREAK_K_MEDIA_WWW_FAVORITES
+                                     };
 
 const uint8_t BREAK_CODES_LEN[] = {sizeof(BREAK_K_A),
                                    sizeof(BREAK_K_B),
@@ -760,4 +763,5 @@ const uint8_t BREAK_CODES_LEN[] = {sizeof(BREAK_K_A),
                                    sizeof(BREAK_K_MEDIA_WWW_FORWARD),
                                    sizeof(BREAK_K_MEDIA_WWW_STOP),
                                    sizeof(BREAK_K_MEDIA_WWW_REFRESH),
-                                   sizeof(BREAK_K_MEDIA_WWW_FAVORITES)};
+                                   sizeof(BREAK_K_MEDIA_WWW_FAVORITES)
+                                  };

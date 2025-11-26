@@ -55,8 +55,7 @@ public:
 
     const uint8_t KEY_CAPS_LOCK = 0x39;
 
-    enum class KeyModifier : uint8_t
-    {
+    enum class KeyModifier : uint8_t {
         L_CTRL = 0x01,
         L_SHIFT = 0x02,
         L_ALT = 0x04,
@@ -67,8 +66,7 @@ public:
         R_META = 0x80
     };
 
-    enum KeyLed : uint8_t
-    {
+    enum KeyLed : uint8_t {
         KEYBOARD_LED_NUMLOCK = 1 << 0,
         KEYBOARD_LED_CAPSLOCK = 1 << 1,
         KEYBOARD_LED_SCROLLLOCK = 1 << 2,
@@ -85,19 +83,16 @@ public:
     // static const uint8_t MAX_KEY_COUNT = 11; // Uncomment if also using dick
     // static const uint8_t MAX_KEY_COUNT = 5; // Uncomment if you're a known argentinian politician
 
-    struct KeyInfo
-    {
+    struct KeyInfo {
         KeyModifier modifier;
         uint8_t keys[MAX_KEY_COUNT];
     };
 
-    struct KeyInfo_CCONTROL // container for 16-bit CCONTROL Usage Codes
-    {
+    struct KeyInfo_CCONTROL { // container for 16-bit CCONTROL Usage Codes
         uint16_t keys[MAX_KEY_COUNT];
     };
 
-    struct Mouse_Control
-    {
+    struct Mouse_Control {
         int16_t mouse_x = 0;
 
         int16_t mouse_y = 0;
@@ -131,8 +126,7 @@ private:
     static SemaphoreHandle_t ble_hidh_cb_semaphore;
     static SemaphoreHandle_t led_device_map_semaphore;
 
-    struct esp_hid_scan_result_t
-    {
+    struct esp_hid_scan_result_t {
         struct esp_hid_scan_result_t *next;
 
         esp_bd_addr_t bda;
@@ -141,23 +135,19 @@ private:
         esp_hid_usage_t usage;
         esp_hid_transport_t transport; // BT, BLE or USB
 
-        union
-        {
-            struct
-            {
+        union {
+            struct {
                 esp_bt_cod_t cod;
                 esp_bt_uuid_t uuid;
             } bt;
-            struct
-            {
+            struct {
                 esp_ble_addr_type_t addr_type;
                 uint16_t appearance;
             } ble;
         };
     };
 
-    typedef struct esp_hidh_dev_report_s // stealed from stack
-    {
+    typedef struct esp_hidh_dev_report_s { // stealed from stack
         struct esp_hidh_dev_report_s *next;
         uint8_t map_index;     // the index of the report map
         uint8_t report_id;     // the id of the report
@@ -171,8 +161,7 @@ private:
         uint8_t permissions; // report permissions
     } esp_hidh_dev_report_t;
 
-    typedef struct
-    {
+    typedef struct {
         uint16_t usage_page = 0;
         uint16_t usage = 0;
         uint16_t inner_usage_page = 0;
@@ -196,8 +185,7 @@ private:
         uint16_t mouse_buttons_amount = 0;
     } hid_report_params_t;
 
-    typedef struct
-    {
+    typedef struct {
         uint8_t report_id = 0;
         uint16_t input_len = 0;
         uint32_t logical_minimum = 0;
@@ -209,8 +197,7 @@ private:
         std::vector<uint16_t> array_usages;
     } hid_report_multimedia_control;
 
-    typedef struct
-    {
+    typedef struct {
         uint8_t report_id = 0;
         uint16_t input_len = 0;
         uint16_t mouse_x_bit_index = 0;
@@ -235,8 +222,7 @@ private:
 
     static std::map<std::string, led_device_info> led_device_map;
 
-    typedef enum
-    {
+    typedef enum {
         PARSE_WAIT_USAGE_PAGE,
         PARSE_WAIT_USAGE,
         PARSE_WAIT_COLLECTION_APPLICATION,
@@ -252,12 +238,10 @@ private:
     static int s_usages_count;
     static std::vector<uint16_t> temp_usages_array;
 
-    typedef struct
-    {
+    typedef struct {
         uint8_t cmd;
         uint8_t len;
-        union
-        {
+        union {
             uint32_t value;
             uint8_t data[4];
         };
@@ -314,7 +298,10 @@ private:
 
     static bool find_output_report(esp_hidh_dev_t *dev, size_t &map_index, size_t &report_id);
 
-    inline void set_battery_level(uint8_t level) { battery_level = level; }
+    inline void set_battery_level(uint8_t level)
+    {
+        battery_level = level;
+    }
 
     void push_key(uint8_t *keys, uint8_t size);
     void push_key_CCONTROL(uint16_t *keys, uint8_t size);
@@ -350,7 +337,10 @@ public:
     bool devices_scan(int seconds_wait_time = 5);
     bool devices_scan_ble_daemon(int seconds_wait_time = 5);
 
-    inline uint8_t get_battery_level() { return battery_level; }
+    inline uint8_t get_battery_level()
+    {
+        return battery_level;
+    }
 
     inline bool wait_for_low_event(KeyInfo &inf, TickType_t duration = portMAX_DELAY)
     {
@@ -368,7 +358,10 @@ public:
     }
 
     char wait_for_ascii_char(bool forever = true);
-    inline char get_ascii_char() { return wait_for_ascii_char(false); }
+    inline char get_ascii_char()
+    {
+        return wait_for_ascii_char(false);
+    }
 
     void quick_reconnect(void);
 

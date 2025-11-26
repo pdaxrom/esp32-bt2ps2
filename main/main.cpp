@@ -49,8 +49,7 @@ esp32_ps2dev::PS2Keyboard keyboard(KB_CLK_PIN, KB_DATA_PIN);
 // BTKeyboard section
 BTKeyboard bt_keyboard;
 
-struct ModifierAction
-{
+struct ModifierAction {
     uint8_t mask;
     esp32_ps2dev::scancodes::Key key;
     const char *label;
@@ -71,18 +70,14 @@ template <typename KeyType, typename ReleaseFn>
 void handle_key_releases(const KeyType *previous, const KeyType *current, ReleaseFn releaseFn)
 {
     bool found = false;
-    for (int i = 0; i < BTKeyboard::MAX_KEY_COUNT && previous[i]; i++)
-    {
-        for (int j = 0; j < BTKeyboard::MAX_KEY_COUNT && current[j]; j++)
-        {
-            if (previous[i] == current[j])
-            {
+    for (int i = 0; i < BTKeyboard::MAX_KEY_COUNT && previous[i]; i++) {
+        for (int j = 0; j < BTKeyboard::MAX_KEY_COUNT && current[j]; j++) {
+            if (previous[i] == current[j]) {
                 found = true;
                 break;
             }
         }
-        if (!found)
-        {
+        if (!found) {
             releaseFn(previous[i]);
         }
         found = false;
@@ -93,18 +88,14 @@ template <typename KeyType, typename PressFn>
 void handle_key_presses(const KeyType *current, const KeyType *previous, PressFn pressFn)
 {
     bool found = false;
-    for (int i = 0; i < BTKeyboard::MAX_KEY_COUNT && current[i]; i++)
-    {
-        for (int j = 0; j < BTKeyboard::MAX_KEY_COUNT && previous[j]; j++)
-        {
-            if (current[i] == previous[j])
-            {
+    for (int i = 0; i < BTKeyboard::MAX_KEY_COUNT && current[i]; i++) {
+        for (int j = 0; j < BTKeyboard::MAX_KEY_COUNT && previous[j]; j++) {
+            if (current[i] == previous[j]) {
                 found = true;
                 break;
             }
         }
-        if (!found)
-        {
+        if (!found) {
             pressFn(current[i]);
         }
         found = false;
@@ -113,22 +104,17 @@ void handle_key_presses(const KeyType *current, const KeyType *previous, PressFn
 
 void handle_modifier_changes(uint8_t newModifiers, uint8_t oldModifiers)
 {
-    for (const auto &action : kModifierActions)
-    {
+    for (const auto &action : kModifierActions) {
         bool now = newModifiers & action.mask;
         bool before = oldModifiers & action.mask;
-        if (now == before)
-        {
+        if (now == before) {
             continue;
         }
 
         ESP_LOGD(TAG, "%s key: %s", now ? "Down" : "Up", action.label);
-        if (now)
-        {
+        if (now) {
             keyboard.keydown(action.key);
-        }
-        else
-        {
+        } else {
             keyboard.keyup(action.key);
         }
     }
@@ -136,24 +122,19 @@ void handle_modifier_changes(uint8_t newModifiers, uint8_t oldModifiers)
 
 void handle_typematic(const BTKeyboard::KeyInfo &infoBuf, int &typematicLeft, int cycle)
 {
-    if (!infoBuf.keys[0])
-    {
+    if (!infoBuf.keys[0]) {
         return;
     }
 
     typematicLeft -= cycle;
-    if (typematicLeft > 0)
-    {
+    if (typematicLeft > 0) {
         return;
     }
 
-    for (int i = 1; i < BTKeyboard::MAX_KEY_COUNT; i++)
-    {
-        if (infoBuf.keys[i] == 0)
-        {
+    for (int i = 1; i < BTKeyboard::MAX_KEY_COUNT; i++) {
+        if (infoBuf.keys[i] == 0) {
             uint8_t repeat_key = infoBuf.keys[i - 1];
-            if (keyboard.allows_typematic(repeat_key))
-            {
+            if (keyboard.allows_typematic(repeat_key)) {
                 ESP_LOGD(TAG, "Down key: %x", repeat_key);
                 keyboard.keyHid_send(repeat_key, true); // Resend the last key
             }
@@ -165,10 +146,12 @@ void handle_typematic(const BTKeyboard::KeyInfo &infoBuf, int &typematicLeft, in
 int NumDigits(int x) // Returns number of digits in keyboard code
 {
     x = abs(x);
-    return (x < 10 ? 1 : (x < 100 ? 2 : (x < 1000 ? 3 : (x < 10000 ? 4 : (x < 100000 ? 5 : (x < 1000000 ? 6 : (x < 10000000 ? 7 : (x < 100000000 ? 8 : (x < 1000000000 ? 9 : 10)))))))));
+    return (x < 10 ? 1 : (x < 100 ? 2 : (x < 1000 ? 3 : (x < 10000 ? 4 : (x < 100000 ? 5 : (x < 1000000 ? 6 :
+                                                                                                          (x < 10000000 ? 7 : (x < 100000000 ? 8 : (x < 1000000000 ? 9 : 10)))))))));
 }
 
-void pairing_handler(uint32_t pid) // This handler deals with BT Classic's manual code entry. DEFAULT CODE FOR LEGACY PAIRING IS 1234 (When no signaling occurs)
+void pairing_handler(uint32_t
+                     pid) // This handler deals with BT Classic's manual code entry. DEFAULT CODE FOR LEGACY PAIRING IS 1234 (When no signaling occurs)
 {
     codeHandlerActive = true; // LED control taken from main loop
 
@@ -179,8 +162,7 @@ void pairing_handler(uint32_t pid) // This handler deals with BT Classic's manua
               << pid
               << std::endl;
 
-    for (int i = 0; i < 10; i++) // Flash quickly many times to alert user of incoming code display
-    {
+    for (int i = 0; i < 10; i++) { // Flash quickly many times to alert user of incoming code display
         gpio_set_level(GPIO_NUM_2, 1);
         vTaskDelay(50 / portTICK_PERIOD_MS);
         gpio_set_level(GPIO_NUM_2, 0);
@@ -189,22 +171,19 @@ void pairing_handler(uint32_t pid) // This handler deals with BT Classic's manua
 
     int dig = NumDigits(x); // How many digits does our code have?
 
-    for (int i = 1; i <= dig; i++)
-    {
+    for (int i = 1; i <= dig; i++) {
         vTaskDelay(2000 / portTICK_PERIOD_MS);
         ESP_LOGW(TAG, "PAIRING CODE (TYPE ON KEYBOARD AND PRESS ENTER): %d ", pid);
         int flash = ((int)((pid / pow(10, (dig - i)))) % 10); // This extracts one ditit at a time from our code
         ESP_LOGI(TAG, "Flashing %d times", flash);
-        for (int n = 0; n < flash; n++) // Flash the LED as many times as the digit
-        {
+        for (int n = 0; n < flash; n++) { // Flash the LED as many times as the digit
             gpio_set_level(GPIO_NUM_2, 1);
             vTaskDelay(200 / portTICK_PERIOD_MS);
             gpio_set_level(GPIO_NUM_2, 0);
             vTaskDelay(200 / portTICK_PERIOD_MS);
         }
 
-        if (flash < 1) // If digit is 0, keep a steady light for 1.5sec
-        {
+        if (flash < 1) { // If digit is 0, keep a steady light for 1.5sec
             gpio_set_level(GPIO_NUM_2, 1);
             vTaskDelay(1500 / portTICK_PERIOD_MS);
             gpio_set_level(GPIO_NUM_2, 0);
@@ -214,8 +193,7 @@ void pairing_handler(uint32_t pid) // This handler deals with BT Classic's manua
 
     vTaskDelay(1000 / portTICK_PERIOD_MS);
 
-    for (int i = 0; i < 10; i++) // Quick flashes indicate end of code display
-    {
+    for (int i = 0; i < 10; i++) { // Quick flashes indicate end of code display
 
         gpio_set_level(GPIO_NUM_2, 1);
         vTaskDelay(50 / portTICK_PERIOD_MS);
@@ -233,30 +211,25 @@ static void IRAM_ATTR pairing_scan(void *arg = NULL)
 
     gpio_set_level(GPIO_NUM_2, 0); // Turn off LED for pairing
 
-    while (bleNowScanning)
-    {
+    while (bleNowScanning) {
         vTaskDelay(500 / portTICK_PERIOD_MS); // shield for BLE daemon
     }
 
     ESP_LOGI(TAG, "/////////////////// PAIRING ACTIVATED ////////////////////////");
     ESP_LOGI(TAG, "Scanning...");
 
-    while (!BTKeyboard::isConnected && !pairingAborted)
-    {
+    while (!BTKeyboard::isConnected && !pairingAborted) {
         bt_keyboard.devices_scan();
-        if (BTKeyboard::btFound)
-        {
+        if (BTKeyboard::btFound) {
             BTKeyboard::btFound = false;
-            for (int i = 0; i < 60; i++)
-            {
-                if (BTKeyboard::isConnected)
+            for (int i = 0; i < 60; i++) {
+                if (BTKeyboard::isConnected) {
                     break;
+                }
                 ESP_LOGI(TAG, "Waiting for BT Classic manual code entry...");
                 vTaskDelay(1000 / portTICK_PERIOD_MS);
             }
-        }
-        else
-        {
+        } else {
             vTaskDelay(1000 / portTICK_PERIOD_MS);
             ESP_LOGI(TAG, "Pairing re-scan...");
         }
@@ -331,27 +304,21 @@ void app_main(void)
     // ESP_ERROR_CHECK(nvs_flash_erase());
 
     ret = nvs_flash_init();
-    if ((ret == ESP_ERR_NVS_NO_FREE_PAGES) || (ret == ESP_ERR_NVS_NEW_VERSION_FOUND))
-    {
+    if ((ret == ESP_ERR_NVS_NO_FREE_PAGES) || (ret == ESP_ERR_NVS_NEW_VERSION_FOUND)) {
         ESP_ERROR_CHECK(nvs_flash_erase());
         ret = nvs_flash_init();
     }
     ESP_ERROR_CHECK(ret);
 
-    if (bt_keyboard.setup(pairing_handler)) // Must be called once
-    {
-        if (pairing_at_startup)
-        {
+    if (bt_keyboard.setup(pairing_handler)) { // Must be called once
+        if (pairing_at_startup) {
             start_pairing_scan();
-        }
-        else
-        {
+        } else {
             gpio_set_level(GPIO_NUM_2, 1); // let the fun begin!
         }
-    }
-    else
-    {
-        ESP_LOGE(TAG, "bt_keyboard.setup() returned false. System initialization ABORTED! Post above log error messages in forum to get help. Restarting...");
+    } else {
+        ESP_LOGE(TAG,
+                 "bt_keyboard.setup() returned false. System initialization ABORTED! Post above log error messages in forum to get help. Restarting...");
         vTaskDelay(5000 / portTICK_PERIOD_MS);
         esp_restart(); // fun aborted
     }
@@ -372,8 +339,7 @@ void app_main(void)
 
     info.modifier = infoBuf.modifier = (BTKeyboard::KeyModifier)0;
 
-    for (int j = 0; j < BTKeyboard::MAX_KEY_COUNT; j++)
-    {
+    for (int j = 0; j < BTKeyboard::MAX_KEY_COUNT; j++) {
         infoBuf.keys[j] = 0;
         info.keys[j] = 0;
         infoBufCCONTROL.keys[j] = 0;
@@ -383,11 +349,9 @@ void app_main(void)
     xTaskCreatePinnedToCore(mouse_task, "mouse_task", 4096, NULL, 9, &mouse_task_handle, 0);
     xTaskCreatePinnedToCore(ble_connection_daemon, "ble_task", 4096, NULL, 0, &ble_connection_daemon_handle, 0);
 
-    while (true)
-    {
+    while (true) {
         uint8_t configNow = keyboard.get_typematic_config();
-        if (configNow != typematicConfig)
-        {
+        if (configNow != typematicConfig) {
             typematicConfig = configNow;
             typematicDelay = keyboard.get_typematic_delay_ms();
             typematicCycle = keyboard.get_typematic_cycle_ms();
@@ -395,10 +359,8 @@ void app_main(void)
             typematicLeft = typematicDelay;
         }
 
-        if (bt_keyboard.wait_for_low_event(info, repeat_period))
-        {
-            if (info.modifier != infoBuf.modifier)
-            {
+        if (bt_keyboard.wait_for_low_event(info, repeat_period)) {
+            if (info.modifier != infoBuf.modifier) {
                 handle_modifier_changes((uint8_t)info.modifier, (uint8_t)infoBuf.modifier);
             }
 
@@ -421,43 +383,35 @@ void app_main(void)
             typematicLeft = typematicDelay; // Typematic timer reset
         }
 
-        else
-        {
+        else {
             handle_typematic(infoBuf, typematicLeft, typematicCycle);
 
-            if (!pairingRequested)
-            {
+            if (!pairingRequested) {
                 gpio_set_level(GPIO_NUM_2, 1); // LED up for every key cycle
 
-                if (!gpio_get_level(GPIO_NUM_0)) // Pairing request via BOOT button (GPIO_0) check
-                {
+                if (!gpio_get_level(GPIO_NUM_0)) { // Pairing request via BOOT button (GPIO_0) check
                     pairingRequested = true;
                     start_pairing_scan();
                 }
-            }
-            else
-            {
-                if (!pairingAborted && !codeHandlerActive) // code handler needs LED control, no touchy while is active!
-                {
+            } else {
+                if (!pairingAborted && !codeHandlerActive) { // code handler needs LED control, no touchy while is active!
                     gpio_set_level(GPIO_NUM_2, 0); // LED down while pairing is active
-                }
-                else if (!codeHandlerActive)
-                {
+                } else if (!codeHandlerActive) {
                     gpio_set_level(GPIO_NUM_2, 1); // LED up while pairin is active but abort is requested
                 }
-                if (!gpio_get_level(GPIO_NUM_0)) // Pairing request via BOOT button (GPIO_0) check
-                {
+                if (!gpio_get_level(GPIO_NUM_0)) { // Pairing request via BOOT button (GPIO_0) check
                     vTaskDelay(2000 / portTICK_PERIOD_MS);
-                    if (!gpio_get_level(GPIO_NUM_0))
-                        pairingAborted = true; // User pressed and hold the pairing button for 2sec while it was active. This is an abort request!
+                    if (!gpio_get_level(GPIO_NUM_0)) {
+                        pairingAborted =
+                                true;    // User pressed and hold the pairing button for 2sec while it was active. This is an abort request!
+                    }
                 }
             }
         }
 
         ////////////////////// MULTIMEDIA KEYS (CCONTROL HID USAGE CODES) SECTION
 
-        if (bt_keyboard.wait_for_low_event_CCONTROL(infoCCONTROL, repeat_period))
-        {
+        if (bt_keyboard.wait_for_low_event_CCONTROL(infoCCONTROL, repeat_period)) {
             auto release_ccontrol = [&](uint16_t key) {
                 ESP_LOGD(TAG, "Up CCONTROL key: %x", key);
                 keyboard.keyHid_send_CCONTROL(key, false);
@@ -484,60 +438,45 @@ void mouse_task(void *arg)
     BTKeyboard::Mouse_Control infoMouse;    // freshly received mouse report
     BTKeyboard::Mouse_Control infoMouseBuf; // currently pressed mouse report
 
-    while (true)
-    {
-        if (!bt_keyboard.wait_for_low_event_MOUSE(infoMouse, portMAX_DELAY))
-        {
+    while (true) {
+        if (!bt_keyboard.wait_for_low_event_MOUSE(infoMouse, portMAX_DELAY)) {
             continue;
         }
 
         mouse.move(infoMouse.mouse_x, infoMouse.mouse_y, infoMouse.mouse_w);
 
         // KEY SECTION (always tested)
-        if ((infoMouse.mouse_buttons) != (infoMouseBuf.mouse_buttons))
-        {
-            if ((infoMouse.mouse_buttons & 0b1) != (infoMouseBuf.mouse_buttons & 0b1)) // change on first button?
-            {
-                if (infoMouse.mouse_buttons & 0b1)
-                {
+        if ((infoMouse.mouse_buttons) != (infoMouseBuf.mouse_buttons)) {
+            if ((infoMouse.mouse_buttons & 0b1) != (infoMouseBuf.mouse_buttons & 0b1)) { // change on first button?
+                if (infoMouse.mouse_buttons & 0b1) {
                     ESP_LOGD(TAG, "Down Mouse button 1");
                     mouse.press(esp32_ps2dev::PS2Mouse::Button::LEFT);
                     gpio_set_level(GPIO_NUM_2, 0);
-                }
-                else
-                {
+                } else {
                     ESP_LOGD(TAG, "Up Mouse button 1");
                     mouse.release(esp32_ps2dev::PS2Mouse::Button::LEFT);
                     gpio_set_level(GPIO_NUM_2, 1);
                 }
             }
 
-            if ((infoMouse.mouse_buttons & 0b10) != (infoMouseBuf.mouse_buttons & 0b10)) // change on second button?
-            {
-                if (infoMouse.mouse_buttons & 0b10)
-                {
+            if ((infoMouse.mouse_buttons & 0b10) != (infoMouseBuf.mouse_buttons & 0b10)) { // change on second button?
+                if (infoMouse.mouse_buttons & 0b10) {
                     ESP_LOGD(TAG, "Down Mouse button 2");
                     mouse.press(esp32_ps2dev::PS2Mouse::Button::RIGHT);
                     gpio_set_level(GPIO_NUM_2, 0);
-                }
-                else
-                {
+                } else {
                     ESP_LOGD(TAG, "Up Mouse button 2");
                     mouse.release(esp32_ps2dev::PS2Mouse::Button::RIGHT);
                     gpio_set_level(GPIO_NUM_2, 1);
                 }
             }
 
-            if ((infoMouse.mouse_buttons & 0b100) != (infoMouseBuf.mouse_buttons & 0b100)) // change on third button?
-            {
-                if (infoMouse.mouse_buttons & 0b100)
-                {
+            if ((infoMouse.mouse_buttons & 0b100) != (infoMouseBuf.mouse_buttons & 0b100)) { // change on third button?
+                if (infoMouse.mouse_buttons & 0b100) {
                     ESP_LOGD(TAG, "Down Mouse button 3");
                     mouse.press(esp32_ps2dev::PS2Mouse::Button::MIDDLE);
                     gpio_set_level(GPIO_NUM_2, 0);
-                }
-                else
-                {
+                } else {
                     ESP_LOGD(TAG, "Up Mouse button 3");
                     mouse.release(esp32_ps2dev::PS2Mouse::Button::MIDDLE);
                     gpio_set_level(GPIO_NUM_2, 1);
@@ -551,20 +490,17 @@ void mouse_task(void *arg)
 
 void ble_connection_daemon(void *arg)
 {
-    while (true)
-    {
-        if (!pairingRequested)
-        {
+    while (true) {
+        if (!pairingRequested) {
             bleNowScanning = true;
             bt_keyboard.devices_scan_ble_daemon();
             ESP_LOGD(TAG, "RAM left %d", esp_get_free_heap_size());
-        }
-        else
-        {
+        } else {
             ESP_LOGI(TAG, "Pairing requested! Stopping BLE connection daemon...");
             bleNowScanning = false;
-            while (pairingRequested)
+            while (pairingRequested) {
                 vTaskDelay(5000 / portTICK_PERIOD_MS);
+            }
         }
     }
 }
@@ -573,12 +509,15 @@ void set_leds_cb(uint8_t leds)
 {
     uint8_t bt_leds = 0;
 
-    if (leds & esp32_ps2dev::PS2Keyboard::KeyLed::KEYBOARD_LED_SCROLLLOCK)
+    if (leds & esp32_ps2dev::PS2Keyboard::KeyLed::KEYBOARD_LED_SCROLLLOCK) {
         bt_leds |= BTKeyboard::KeyLed::KEYBOARD_LED_SCROLLLOCK;
-    if (leds & esp32_ps2dev::PS2Keyboard::KeyLed::KEYBOARD_LED_NUMLOCK)
+    }
+    if (leds & esp32_ps2dev::PS2Keyboard::KeyLed::KEYBOARD_LED_NUMLOCK) {
         bt_leds |= BTKeyboard::KeyLed::KEYBOARD_LED_NUMLOCK;
-    if (leds & esp32_ps2dev::PS2Keyboard::KeyLed::KEYBOARD_LED_CAPSLOCK)
+    }
+    if (leds & esp32_ps2dev::PS2Keyboard::KeyLed::KEYBOARD_LED_CAPSLOCK) {
         bt_leds |= BTKeyboard::KeyLed::KEYBOARD_LED_CAPSLOCK;
+    }
 
     bt_keyboard.set_leds(bt_leds);
 }
