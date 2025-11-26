@@ -54,14 +54,14 @@ const char *BTKeyboard::bt_gap_evt_names[] = {"DISC_RES", "DISC_STATE_CHANGED", 
 const char *BTKeyboard::ble_addr_type_names[] = {"PUBLIC", "RANDOM", "RPA_PUBLIC", "RPA_RANDOM"};
 
 const char BTKeyboard::shift_trans_dict[] =
-        "aAbBcCdDeEfFgGhHiIjJkKlLmMnNoOpPqQrRsStTuUvVwWxXyYzZ1!2@3#4$5%6^7&8*9(0)"
-        "\r\r\033\033\b\b\t\t  -_=+[{]}\\|??;:'\"`~,<.>/?"
-        "\200\200"                                          // CAPS LOC
-        "\201\201\202\202\203\203\204\204\205\205\206\206"  // F1..F6
-        "\207\207\210\210\211\211\212\212\213\213\214\214"  // F7..F12
-        "\215\215\216\216\217\217"                          // PrintScreen ScrollLock Pause
-        "\220\220\221\221\222\222\177\177"                  // Insert Home PageUp Delete
-        "\223\223\224\224\225\225\226\226\227\227\230\230"; // End PageDown Right Left Dow Up
+    "aAbBcCdDeEfFgGhHiIjJkKlLmMnNoOpPqQrRsStTuUvVwWxXyYzZ1!2@3#4$5%6^7&8*9(0)"
+    "\r\r\033\033\b\b\t\t  -_=+[{]}\\|??;:'\"`~,<.>/?"
+    "\200\200"                                          // CAPS LOC
+    "\201\201\202\202\203\203\204\204\205\205\206\206"  // F1..F6
+    "\207\207\210\210\211\211\212\212\213\213\214\214"  // F7..F12
+    "\215\215\216\216\217\217"                          // PrintScreen ScrollLock Pause
+    "\220\220\221\221\222\222\177\177"                  // Insert Home PageUp Delete
+    "\223\223\224\224\225\225\226\226\227\227\230\230"; // End PageDown Right Left Dow Up
 
 static BTKeyboard *bt_keyboard = nullptr;
 bool BTKeyboard::isConnected = false;
@@ -621,7 +621,7 @@ void BTKeyboard::handle_ble_device_result(esp_ble_gap_cb_param_t *param)
 
     uint8_t uuid_len = 0;
     uint8_t *uuid_d = esp_ble_resolve_adv_data_by_type(param->scan_rst.ble_adv,
-                                                       param->scan_rst.adv_data_len + param->scan_rst.scan_rsp_len, ESP_BLE_AD_TYPE_16SRV_CMPL, &uuid_len);
+                      param->scan_rst.adv_data_len + param->scan_rst.scan_rsp_len, ESP_BLE_AD_TYPE_16SRV_CMPL, &uuid_len);
 
     if (uuid_d != nullptr && uuid_len) {
         uuid = uuid_d[0] + (uuid_d[1] << 8);
@@ -629,7 +629,7 @@ void BTKeyboard::handle_ble_device_result(esp_ble_gap_cb_param_t *param)
 
     uint8_t appearance_len = 0;
     uint8_t *appearance_d = esp_ble_resolve_adv_data_by_type(param->scan_rst.ble_adv,
-                                                             param->scan_rst.adv_data_len + param->scan_rst.scan_rsp_len, ESP_BLE_AD_TYPE_APPEARANCE, &appearance_len);
+                            param->scan_rst.adv_data_len + param->scan_rst.scan_rsp_len, ESP_BLE_AD_TYPE_APPEARANCE, &appearance_len);
 
     if (appearance_d != nullptr && appearance_len) {
         appearance = appearance_d[0] + (appearance_d[1] << 8);
@@ -637,11 +637,11 @@ void BTKeyboard::handle_ble_device_result(esp_ble_gap_cb_param_t *param)
 
     uint8_t adv_name_len = 0;
     uint8_t *adv_name = esp_ble_resolve_adv_data_by_type(param->scan_rst.ble_adv,
-                                                         param->scan_rst.adv_data_len + param->scan_rst.scan_rsp_len, ESP_BLE_AD_TYPE_NAME_CMPL, &adv_name_len);
+                        param->scan_rst.adv_data_len + param->scan_rst.scan_rsp_len, ESP_BLE_AD_TYPE_NAME_CMPL, &adv_name_len);
 
     if (adv_name == nullptr) {
         adv_name = esp_ble_resolve_adv_data_by_type(param->scan_rst.ble_adv,
-                                                    param->scan_rst.adv_data_len + param->scan_rst.scan_rsp_len,ESP_BLE_AD_TYPE_NAME_SHORT, &adv_name_len);
+                   param->scan_rst.adv_data_len + param->scan_rst.scan_rsp_len,ESP_BLE_AD_TYPE_NAME_SHORT, &adv_name_len);
     }
 
     if (adv_name != nullptr && adv_name_len) {
@@ -662,7 +662,7 @@ void BTKeyboard::handle_ble_device_result(esp_ble_gap_cb_param_t *param)
 
     int numBonded = esp_ble_get_bond_device_num();
     esp_ble_bond_dev_t *dev_list = (esp_ble_bond_dev_t *)malloc(sizeof(esp_ble_bond_dev_t) *
-                                                                numBonded); // bonded device information list
+                                   numBonded); // bonded device information list
 
     if (numBonded > 0) {
         if ((esp_ble_get_bond_device_list(&numBonded, dev_list)) != ESP_OK) {
@@ -731,7 +731,7 @@ void BTKeyboard::ble_gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap
         break;
     }
 
-        // ADVERTISEMENT
+    // ADVERTISEMENT
 
     case ESP_GAP_BLE_ADV_DATA_SET_COMPLETE_EVT:
         ESP_LOGV(TAG, "BLE GAP ADV_DATA_SET_COMPLETE");
@@ -741,7 +741,7 @@ void BTKeyboard::ble_gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap
         ESP_LOGV(TAG, "BLE GAP ADV_START_COMPLETE");
         break;
 
-        // AUTHENTICATION
+    // AUTHENTICATION
 
     case ESP_GAP_BLE_AUTH_CMPL_EVT:
         if (!param->ble_security.auth_cmpl.success) {
@@ -1012,7 +1012,7 @@ bool BTKeyboard::devices_scan_ble_daemon(int seconds_wait_time)
     ESP_LOGV(TAG, "Number of bonded devices: %d", numBonded);
 
     esp_ble_bond_dev_t *dev_list = (esp_ble_bond_dev_t *)malloc(sizeof(esp_ble_bond_dev_t) *
-                                                                numBonded); // bonded device information list
+                                   numBonded); // bonded device information list
 
     if ((esp_ble_get_bond_device_list(&numBonded, dev_list)) != ESP_OK) {
         // populate list
@@ -1126,14 +1126,14 @@ void BTKeyboard::hidh_callback(void *handler_args, esp_event_base_t base, int32_
                 esp_ble_conn_update_params_t conn_params;
                 esp_gap_conn_params_t current_params;
                 esp_err_t ret = esp_ble_get_current_conn_params(const_cast<uint8_t *>(esp_hidh_dev_bda_get(param->open.dev)),
-                                                                &current_params);
+                                &current_params);
                 if ((ret == ESP_OK) && (current_params.timeout < 120)) {
                     memcpy(conn_params.bda, esp_hidh_dev_bda_get(param->open.dev), sizeof(esp_bd_addr_t));
                     conn_params.latency = current_params.latency;
                     conn_params.max_int = current_params.interval; // We preserve the device-negotiated intervals
                     conn_params.min_int = 6;
                     conn_params.timeout =
-                            400; // timeout = 400*10ms = 4000ms this is a fix because some devices like my Redragon Draconic K530 disconnected a lot
+                        400; // timeout = 400*10ms = 4000ms this is a fix because some devices like my Redragon Draconic K530 disconnected a lot
                     // start sent the update connection parameters to the peer device.
                     esp_ble_gap_update_conn_params(&conn_params);
                 } else {
@@ -1348,9 +1348,9 @@ char BTKeyboard::wait_for_ascii_char(bool forever)
 
     while (true) {
         if (!wait_for_low_event(inf, (last_ch == 0) ? (forever ? portMAX_DELAY : 0) : repeat_period)) {
-            repeat_period = pdMS_TO_TICKS(120);
-            return last_ch;
-        }
+                repeat_period = pdMS_TO_TICKS(120);
+                return last_ch;
+            }
 
         int k = -1;
         for (int i = 0; i < MAX_KEY_COUNT; i++) {
@@ -1382,361 +1382,361 @@ char BTKeyboard::wait_for_ascii_char(bool forever)
                         repeat_period = pdMS_TO_TICKS(500);
                         return last_ch = shift_trans_dict[(ch - 4) << 1];
                     } else {
-                                repeat_period = pdMS_TO_TICKS(500);
-                                return last_ch = shift_trans_dict[((ch - 4) << 1) + 1];
+                        repeat_period = pdMS_TO_TICKS(500);
+                        return last_ch = shift_trans_dict[((ch - 4) << 1) + 1];
                     }
+                } else {
+                    if (caps_lock) {
+                        repeat_period = pdMS_TO_TICKS(500);
+                        return last_ch = shift_trans_dict[((ch - 4) << 1) + 1];
                     } else {
-                                if (caps_lock) {
-                                repeat_period = pdMS_TO_TICKS(500);
-                                return last_ch = shift_trans_dict[((ch - 4) << 1) + 1];
-                    } else {
-                                repeat_period = pdMS_TO_TICKS(500);
-                                return last_ch = shift_trans_dict[(ch - 4) << 1];
+                        repeat_period = pdMS_TO_TICKS(500);
+                        return last_ch = shift_trans_dict[(ch - 4) << 1];
                     }
-                    }
-                    }
-                    }
+                }
+            }
+        }
 
-                                last_ch = 0;
-                    }
-                    }
+        last_ch = 0;
+    }
+}
 
-                                void BTKeyboard::quick_reconnect(void) // tries to connect to the latest bonded device, without a scan
-                        {
-                                while (!BTKeyboard::isConnected) {
-                                ESP_LOGI(TAG, "Trying to reconnect To: " ESP_BD_ADDR_STR, ESP_BD_ADDR_HEX(lastConnected.bda));
-                                ESP_LOGI(TAG, "TRANSPORT:  %s", (lastConnected.transport == ESP_HID_TRANSPORT_BLE) ? "BLE" : "BT ");
-                                esp_hidh_dev_open(lastConnected.bda, lastConnected.transport, lastConnected.ble.addr_type);
-                                ESP_LOGI(TAG, "Tried to reconnect.");
-                                vTaskDelay(2000 / portTICK_PERIOD_MS);
-                    }
-                    }
+void BTKeyboard::quick_reconnect(void) // tries to connect to the latest bonded device, without a scan
+{
+    while (!BTKeyboard::isConnected) {
+        ESP_LOGI(TAG, "Trying to reconnect To: " ESP_BD_ADDR_STR, ESP_BD_ADDR_HEX(lastConnected.bda));
+        ESP_LOGI(TAG, "TRANSPORT:  %s", (lastConnected.transport == ESP_HID_TRANSPORT_BLE) ? "BLE" : "BT ");
+        esp_hidh_dev_open(lastConnected.bda, lastConnected.transport, lastConnected.ble.addr_type);
+        ESP_LOGI(TAG, "Tried to reconnect.");
+        vTaskDelay(2000 / portTICK_PERIOD_MS);
+    }
+}
 
-                                esp_err_t BTKeyboard::hid_report_parse_multimedia_keys(const uint8_t *hid_rm, size_t hid_rm_len, esp_hidh_dev_t *device)
-                        {
-                                size_t index = 0;
-                                int res;
+esp_err_t BTKeyboard::hid_report_parse_multimedia_keys(const uint8_t *hid_rm, size_t hid_rm_len, esp_hidh_dev_t *device)
+{
+    size_t index = 0;
+    int res;
 
-                                while (index < hid_rm_len) {
-                                hid_report_cmd_t *cmd;
-                                res = parse_cmd(hid_rm, hid_rm_len, index, &cmd);
-                                if (res < 0) {
-                                ESP_LOGE("BT_Keyboard hid_report_parse_multimedia_keys:", " Failed parsing the descriptor at index: %u", index);
-                                return ESP_FAIL;
-                    }
-                                index += res;
+    while (index < hid_rm_len) {
+        hid_report_cmd_t *cmd;
+        res = parse_cmd(hid_rm, hid_rm_len, index, &cmd);
+        if (res < 0) {
+            ESP_LOGE("BT_Keyboard hid_report_parse_multimedia_keys:", " Failed parsing the descriptor at index: %u", index);
+            return ESP_FAIL;
+        }
+        index += res;
 
-                                res = handle_cmd(cmd, device);
-                                free(cmd);
-                                if (res != 0) {
-                                return ESP_FAIL;
-                    }
-                    }
+        res = handle_cmd(cmd, device);
+        free(cmd);
+        if (res != 0) {
+            return ESP_FAIL;
+        }
+    }
 
-                                return ESP_OK;
-                    }
+    return ESP_OK;
+}
 
-                                int BTKeyboard::parse_cmd(const uint8_t *data, size_t len, size_t index, hid_report_cmd_t **out)
-                        {
-                                if (index == len) {
-                                return 0;
-                    }
-                                hid_report_cmd_t *cmd = (hid_report_cmd_t *)malloc(sizeof(hid_report_cmd_t));
-                                if (cmd == NULL) {
-                                return -1;
-                    }
-                                const uint8_t *dp = data + index;
-                                cmd->cmd = *dp & 0xFC;
-                                cmd->len = *dp & 0x03;
-                                cmd->value = 0;
-                                for (int i = 0; i < 4; i++) {
-                                cmd->data[i] = 0;
-                    }
-                                if (cmd->len == 3) {
-                            cmd->len = 4;
-                        }
-                        if ((len - index - 1) < cmd->len) {
-                        ESP_LOGE("BT_Keyboard parse_cmd:", "not enough bytes! cmd: 0x%02x, len: %u, index: %u", cmd->cmd, cmd->len, index);
-                        free(cmd);
+int BTKeyboard::parse_cmd(const uint8_t *data, size_t len, size_t index, hid_report_cmd_t **out)
+{
+    if (index == len) {
+        return 0;
+    }
+    hid_report_cmd_t *cmd = (hid_report_cmd_t *)malloc(sizeof(hid_report_cmd_t));
+    if (cmd == NULL) {
+        return -1;
+    }
+    const uint8_t *dp = data + index;
+    cmd->cmd = *dp & 0xFC;
+    cmd->len = *dp & 0x03;
+    cmd->value = 0;
+    for (int i = 0; i < 4; i++) {
+        cmd->data[i] = 0;
+    }
+    if (cmd->len == 3) {
+        cmd->len = 4;
+    }
+    if ((len - index - 1) < cmd->len) {
+        ESP_LOGE("BT_Keyboard parse_cmd:", "not enough bytes! cmd: 0x%02x, len: %u, index: %u", cmd->cmd, cmd->len, index);
+        free(cmd);
+        return -1;
+    }
+    memcpy(cmd->data, dp + 1, cmd->len);
+    *out = cmd;
+    return cmd->len + 1;
+}
+
+int BTKeyboard::handle_cmd(hid_report_cmd_t *cmd, esp_hidh_dev_t *device)
+{
+    switch (s_parse_step) {
+    case PARSE_WAIT_USAGE_PAGE: {
+        if (cmd->cmd != HID_RM_USAGE_PAGE) {
+            ESP_LOGE("BT_Keyboard handle_cmd:", "expected USAGE_PAGE, but got 0x%02x", cmd->cmd);
+            return -1;
+        }
+        s_report_size = 0;
+        s_report_count = 0;
+        // memset(&s_report_params, 0, sizeof(hid_report_params_t));
+        s_report_params = s_report_params_empty;
+
+        s_report_params.usage_page = cmd->value;
+        s_parse_step = PARSE_WAIT_USAGE;
+        break;
+    }
+    case PARSE_WAIT_USAGE: {
+        if (cmd->cmd != HID_RM_USAGE) {
+            ESP_LOGE("BT_Keyboard handle_cmd:", "expected USAGE, but got 0x%02x", cmd->cmd);
+            s_parse_step = PARSE_WAIT_USAGE_PAGE;
+            return -1;
+        }
+        s_report_params.usage = cmd->value;
+        s_parse_step = PARSE_WAIT_COLLECTION_APPLICATION;
+        break;
+    }
+    case PARSE_WAIT_COLLECTION_APPLICATION: {
+        if (cmd->cmd != HID_RM_COLLECTION) {
+            ESP_LOGE("BT_Keyboard handle_cmd:", "expected COLLECTION, but got 0x%02x", cmd->cmd);
+            s_parse_step = PARSE_WAIT_USAGE_PAGE;
+            return -1;
+        }
+        if (cmd->value != 1) {
+            ESP_LOGE("BT_Keyboard handle_cmd:", "expected APPLICATION, but got 0x%02x", cmd->value);
+            s_parse_step = PARSE_WAIT_USAGE_PAGE;
+            return -1;
+        }
+        s_report_params.report_id = 0;
+        s_collection_depth = 1;
+        s_parse_step = PARSE_WAIT_END_COLLECTION;
+        break;
+    }
+    case PARSE_WAIT_END_COLLECTION: {
+        if (cmd->cmd == HID_RM_REPORT_ID) {
+            if (s_report_params.report_id && s_report_params.report_id != cmd->value) {
+                // report id changed mid collection
+                if (s_report_params.input_len & 0x7) {
+                    ESP_LOGE("BT_Keyboard handle_cmd:", "ERROR: INPUT report does not amount to full bytes! %d (%d)",
+                             s_report_params.input_len, s_report_params.input_len & 0x7);
+                } else if (s_report_params.output_len & 0x7) {
+                    ESP_LOGE("BT_Keyboard handle_cmd:", "ERROR: OUTPUT report does not amount to full bytes! %d (%d)",
+                             s_report_params.output_len, s_report_params.output_len & 0x7);
+                } else if (s_report_params.feature_len & 0x7) {
+                    ESP_LOGE("BT_Keyboard handle_cmd:", "ERROR: FEATURE report does not amount to full bytes! %d (%d)",
+                             s_report_params.feature_len, s_report_params.feature_len & 0x7);
+                } else {
+                    // SUCCESS!!!
+                    int res = handle_report(&s_report_params, device);
+                    if (res != 0) {
+                        s_parse_step = PARSE_WAIT_USAGE_PAGE;
                         return -1;
                     }
-                        memcpy(cmd->data, dp + 1, cmd->len);
-                        *out = cmd;
-                        return cmd->len + 1;
+
+                    s_report_params.input_len = 0;
+                    s_report_params.output_len = 0;
+                    s_report_params.feature_len = 0;
+                    s_report_params.usage = s_report_params.inner_usage;
+                    s_report_params.usage_page = s_report_params.inner_usage_page;
+                }
+            }
+            s_report_params.report_id = cmd->value;
+        } else if (cmd->cmd == HID_RM_USAGE_PAGE) {
+            s_report_params.inner_usage_page = cmd->value;
+        } else if (cmd->cmd == HID_RM_USAGE) {
+            s_report_params.inner_usage = cmd->value;
+            temp_usages_array.push_back(cmd->value);
+            s_usages_count++;
+        } else if (cmd->cmd == HID_RM_REPORT_SIZE) {
+            s_report_size = cmd->value;
+        } else if (cmd->cmd == HID_RM_REPORT_COUNT) {
+            s_report_count = cmd->value;
+        } else if (cmd->cmd == HID_RM_LOGICAL_MINIMUM) {
+            s_report_params.logical_minimum = cmd->value;
+        } else if (cmd->cmd == HID_RM_LOGICAL_MAXIMUM) {
+            s_report_params.logical_maximum = cmd->value;
+        } else if (cmd->cmd == HID_RM_USAGE_MAXIMUM) {
+            s_report_params.usage_maximum = cmd->value;
+        } else if (cmd->cmd == HID_RM_USAGE_MINIMUM) {
+            s_report_params.usage_minimum = cmd->value;
+        } else if (cmd->cmd == HID_RM_INPUT) {
+            if (s_report_params.usage == HID_USAGE_MOUSE) { // process mouse usages
+                for (int j = 0; j < temp_usages_array.size(); j++) {
+                    if (temp_usages_array[j] == 0x30) { // X
+                        s_report_params.mouse_x_bit_index = s_report_params.input_len + (j * s_report_size);
+                        s_report_params.mouse_x_lenght = s_report_size;
+                    } else if (temp_usages_array[j] == 0x31) { // Y
+                        s_report_params.mouse_y_bit_index = s_report_params.input_len + (j * s_report_size);
+                        s_report_params.mouse_y_lenght = s_report_size;
+                    } else if (temp_usages_array[j] == 0x38) { // W (wheel)
+                        s_report_params.mouse_w_bit_index = s_report_params.input_len + (j * s_report_size);
+                        s_report_params.mouse_w_lenght = s_report_size;
                     }
+                }
+                temp_usages_array.clear();
 
-                    int BTKeyboard::handle_cmd(hid_report_cmd_t *cmd, esp_hidh_dev_t *device)
-                    {
-                        switch (s_parse_step) {
-                        case PARSE_WAIT_USAGE_PAGE: {
-                            if (cmd->cmd != HID_RM_USAGE_PAGE) {
-                                ESP_LOGE("BT_Keyboard handle_cmd:", "expected USAGE_PAGE, but got 0x%02x", cmd->cmd);
-                                return -1;
-                            }
-                            s_report_size = 0;
-                            s_report_count = 0;
-                            // memset(&s_report_params, 0, sizeof(hid_report_params_t));
-                            s_report_params = s_report_params_empty;
+                if (!(cmd->value & 0x1) && (s_report_params.inner_usage_page == 0x09)) { // data (no const) & button usage page check
+                    s_report_params.mouse_buttons_bit_index = s_report_params.input_len;
+                    s_report_params.mouse_buttons_amount = s_report_count;
+                }
+            } else { // process keyboard usages
+                int i = (s_report_size * s_report_count) - s_usages_count; // usages vector: fill with 0's when no usage is added
+                for (int k = 0; k < i; k++) {
+                    temp_usages_array.push_back(0);
+                }
+            }
 
-                            s_report_params.usage_page = cmd->value;
-                            s_parse_step = PARSE_WAIT_USAGE;
-                            break;
-                        }
-                        case PARSE_WAIT_USAGE: {
-                            if (cmd->cmd != HID_RM_USAGE) {
-                                ESP_LOGE("BT_Keyboard handle_cmd:", "expected USAGE, but got 0x%02x", cmd->cmd);
-                                s_parse_step = PARSE_WAIT_USAGE_PAGE;
-                                return -1;
-                            }
-                            s_report_params.usage = cmd->value;
-                            s_parse_step = PARSE_WAIT_COLLECTION_APPLICATION;
-                            break;
-                        }
-                        case PARSE_WAIT_COLLECTION_APPLICATION: {
-                            if (cmd->cmd != HID_RM_COLLECTION) {
-                                ESP_LOGE("BT_Keyboard handle_cmd:", "expected COLLECTION, but got 0x%02x", cmd->cmd);
-                                s_parse_step = PARSE_WAIT_USAGE_PAGE;
-                                return -1;
-                            }
-                            if (cmd->value != 1) {
-                                ESP_LOGE("BT_Keyboard handle_cmd:", "expected APPLICATION, but got 0x%02x", cmd->value);
-                                s_parse_step = PARSE_WAIT_USAGE_PAGE;
-                                return -1;
-                            }
-                            s_report_params.report_id = 0;
-                            s_collection_depth = 1;
-                            s_parse_step = PARSE_WAIT_END_COLLECTION;
-                            break;
-                        }
-                        case PARSE_WAIT_END_COLLECTION: {
-                            if (cmd->cmd == HID_RM_REPORT_ID) {
-                                if (s_report_params.report_id && s_report_params.report_id != cmd->value) {
-                                    // report id changed mid collection
-                                    if (s_report_params.input_len & 0x7) {
-                                        ESP_LOGE("BT_Keyboard handle_cmd:", "ERROR: INPUT report does not amount to full bytes! %d (%d)",
-                                                 s_report_params.input_len, s_report_params.input_len & 0x7);
-                                    } else if (s_report_params.output_len & 0x7) {
-                                        ESP_LOGE("BT_Keyboard handle_cmd:", "ERROR: OUTPUT report does not amount to full bytes! %d (%d)",
-                                                 s_report_params.output_len, s_report_params.output_len & 0x7);
-                                    } else if (s_report_params.feature_len & 0x7) {
-                                        ESP_LOGE("BT_Keyboard handle_cmd:", "ERROR: FEATURE report does not amount to full bytes! %d (%d)",
-                                                 s_report_params.feature_len, s_report_params.feature_len & 0x7);
-                                    } else {
-                                        // SUCCESS!!!
-                                        int res = handle_report(&s_report_params, device);
-                                        if (res != 0) {
-                                            s_parse_step = PARSE_WAIT_USAGE_PAGE;
-                                            return -1;
-                                        }
+            s_usages_count = 0;
 
-                                        s_report_params.input_len = 0;
-                                        s_report_params.output_len = 0;
-                                        s_report_params.feature_len = 0;
-                                        s_report_params.usage = s_report_params.inner_usage;
-                                        s_report_params.usage_page = s_report_params.inner_usage_page;
-                                    }
-                                }
-                                s_report_params.report_id = cmd->value;
-                            } else if (cmd->cmd == HID_RM_USAGE_PAGE) {
-                                s_report_params.inner_usage_page = cmd->value;
-                            } else if (cmd->cmd == HID_RM_USAGE) {
-                                s_report_params.inner_usage = cmd->value;
-                                temp_usages_array.push_back(cmd->value);
-                                s_usages_count++;
-                            } else if (cmd->cmd == HID_RM_REPORT_SIZE) {
-                                s_report_size = cmd->value;
-                            } else if (cmd->cmd == HID_RM_REPORT_COUNT) {
-                                s_report_count = cmd->value;
-                            } else if (cmd->cmd == HID_RM_LOGICAL_MINIMUM) {
-                                s_report_params.logical_minimum = cmd->value;
-                            } else if (cmd->cmd == HID_RM_LOGICAL_MAXIMUM) {
-                                s_report_params.logical_maximum = cmd->value;
-                            } else if (cmd->cmd == HID_RM_USAGE_MAXIMUM) {
-                                s_report_params.usage_maximum = cmd->value;
-                            } else if (cmd->cmd == HID_RM_USAGE_MINIMUM) {
-                                s_report_params.usage_minimum = cmd->value;
-                            } else if (cmd->cmd == HID_RM_INPUT) {
-                                if (s_report_params.usage == HID_USAGE_MOUSE) { // process mouse usages
-                                    for (int j = 0; j < temp_usages_array.size(); j++) {
-                                        if (temp_usages_array[j] == 0x30) { // X
-                                            s_report_params.mouse_x_bit_index = s_report_params.input_len + (j * s_report_size);
-                                            s_report_params.mouse_x_lenght = s_report_size;
-                                        } else if (temp_usages_array[j] == 0x31) { // Y
-                                            s_report_params.mouse_y_bit_index = s_report_params.input_len + (j * s_report_size);
-                                            s_report_params.mouse_y_lenght = s_report_size;
-                                        } else if (temp_usages_array[j] == 0x38) { // W (wheel)
-                                            s_report_params.mouse_w_bit_index = s_report_params.input_len + (j * s_report_size);
-                                            s_report_params.mouse_w_lenght = s_report_size;
-                                        }
-                                    }
-                                    temp_usages_array.clear();
+            if (!(cmd->value & 0x2)) { // array check
+                s_report_params.contains_array = true;
+            }
 
-                                    if (!(cmd->value & 0x1) && (s_report_params.inner_usage_page == 0x09)) { // data (no const) & button usage page check
-                                        s_report_params.mouse_buttons_bit_index = s_report_params.input_len;
-                                        s_report_params.mouse_buttons_amount = s_report_count;
-                                    }
-                                } else { // process keyboard usages
-                                    int i = (s_report_size * s_report_count) - s_usages_count; // usages vector: fill with 0's when no usage is added
-                                    for (int k = 0; k < i; k++) {
-                                        temp_usages_array.push_back(0);
-                                    }
-                                }
-
-                                s_usages_count = 0;
-
-                                if (!(cmd->value & 0x2)) { // array check
-                                    s_report_params.contains_array = true;
-                                }
-
-                                s_report_params.input_len += (s_report_size * s_report_count); // input lenght is always increased (LAST)
-                            } else if (cmd->cmd == HID_RM_OUTPUT) {
-                                s_report_params.output_len += (s_report_size * s_report_count);
-                            } else if (cmd->cmd == HID_RM_FEATURE) {
-                                s_report_params.feature_len += (s_report_size * s_report_count);
-                            } else if (cmd->cmd == HID_RM_COLLECTION) {
-                                s_collection_depth += 1;
-                            } else if (cmd->cmd == HID_RM_END_COLLECTION) {
-                                s_collection_depth -= 1;
-                                if (s_collection_depth == 0) {
-                                    if (s_report_params.input_len & 0x7) {
-                                        ESP_LOGE("BT_Keyboard handle_cmd:", "ERROR: INPUT report does not amount to full bytes! %d (%d)",
-                                                 s_report_params.input_len, s_report_params.input_len & 0x7);
-                                    } else if (s_report_params.output_len & 0x7) {
-                                        ESP_LOGE("BT_Keyboard handle_cmd:", "ERROR: OUTPUT report does not amount to full bytes! %d (%d)",
-                                                 s_report_params.output_len, s_report_params.output_len & 0x7);
-                                    } else if (s_report_params.feature_len & 0x7) {
-                                        ESP_LOGE("BT_Keyboard handle_cmd:", "ERROR: FEATURE report does not amount to full bytes! %d (%d)",
-                                                 s_report_params.feature_len, s_report_params.feature_len & 0x7);
-                                    } else {
-                                        // SUCCESS!!!
-                                        int res = handle_report(&s_report_params, device);
-                                        if (res != 0) {
-                                            s_parse_step = PARSE_WAIT_USAGE_PAGE;
-                                            return -1;
-                                        }
-                                    }
-                                    s_parse_step = PARSE_WAIT_USAGE_PAGE;
-                                }
-                            }
-
-                            break;
-                        }
-                        default:
-                            s_parse_step = PARSE_WAIT_USAGE_PAGE;
-                            break;
-                        }
-                        return 0;
+            s_report_params.input_len += (s_report_size * s_report_count); // input lenght is always increased (LAST)
+        } else if (cmd->cmd == HID_RM_OUTPUT) {
+            s_report_params.output_len += (s_report_size * s_report_count);
+        } else if (cmd->cmd == HID_RM_FEATURE) {
+            s_report_params.feature_len += (s_report_size * s_report_count);
+        } else if (cmd->cmd == HID_RM_COLLECTION) {
+            s_collection_depth += 1;
+        } else if (cmd->cmd == HID_RM_END_COLLECTION) {
+            s_collection_depth -= 1;
+            if (s_collection_depth == 0) {
+                if (s_report_params.input_len & 0x7) {
+                    ESP_LOGE("BT_Keyboard handle_cmd:", "ERROR: INPUT report does not amount to full bytes! %d (%d)",
+                             s_report_params.input_len, s_report_params.input_len & 0x7);
+                } else if (s_report_params.output_len & 0x7) {
+                    ESP_LOGE("BT_Keyboard handle_cmd:", "ERROR: OUTPUT report does not amount to full bytes! %d (%d)",
+                             s_report_params.output_len, s_report_params.output_len & 0x7);
+                } else if (s_report_params.feature_len & 0x7) {
+                    ESP_LOGE("BT_Keyboard handle_cmd:", "ERROR: FEATURE report does not amount to full bytes! %d (%d)",
+                             s_report_params.feature_len, s_report_params.feature_len & 0x7);
+                } else {
+                    // SUCCESS!!!
+                    int res = handle_report(&s_report_params, device);
+                    if (res != 0) {
+                        s_parse_step = PARSE_WAIT_USAGE_PAGE;
+                        return -1;
                     }
+                }
+                s_parse_step = PARSE_WAIT_USAGE_PAGE;
+            }
+        }
 
-                    int BTKeyboard::handle_report(hid_report_params_t *report, esp_hidh_dev_t *device)
-                    {
-                        std::pair<esp_hidh_dev_t *, uint16_t> key = std::make_pair(device,
-                                                                                   report->report_id); // device-report ID unique identifier.
+        break;
+    }
+    default:
+        s_parse_step = PARSE_WAIT_USAGE_PAGE;
+        break;
+    }
+    return 0;
+}
 
-                        if (report->usage_page == HID_USAGE_PAGE_CONSUMER_DEVICE && report->usage == HID_USAGE_CONSUMER_CONTROL) {
-                            multimedia_reports[key].array_usages = temp_usages_array;
-                            multimedia_reports[key].contains_array = report->contains_array;
-                            multimedia_reports[key].input_len = report->input_len;
-                            multimedia_reports[key].logical_maximum = report->logical_maximum;
-                            multimedia_reports[key].logical_minimum = report->logical_minimum;
-                            multimedia_reports[key].report_id = report->report_id;
-                            multimedia_reports[key].usage_maximum = report->usage_maximum;
-                            multimedia_reports[key].usage_minimum = report->usage_minimum;
-                            multimedia_reports[key].report_count = BTKeyboard::s_report_count;
+int BTKeyboard::handle_report(hid_report_params_t *report, esp_hidh_dev_t *device)
+{
+    std::pair<esp_hidh_dev_t *, uint16_t> key = std::make_pair(device,
+        report->report_id); // device-report ID unique identifier.
 
-                            ESP_LOGD("bt_Keyboard handle_report: ", "Amount of CCONTROL reports: %u", multimedia_reports.size());
-                        }
+    if (report->usage_page == HID_USAGE_PAGE_CONSUMER_DEVICE && report->usage == HID_USAGE_CONSUMER_CONTROL) {
+        multimedia_reports[key].array_usages = temp_usages_array;
+        multimedia_reports[key].contains_array = report->contains_array;
+        multimedia_reports[key].input_len = report->input_len;
+        multimedia_reports[key].logical_maximum = report->logical_maximum;
+        multimedia_reports[key].logical_minimum = report->logical_minimum;
+        multimedia_reports[key].report_id = report->report_id;
+        multimedia_reports[key].usage_maximum = report->usage_maximum;
+        multimedia_reports[key].usage_minimum = report->usage_minimum;
+        multimedia_reports[key].report_count = BTKeyboard::s_report_count;
 
-                        if (report->usage_page == HID_USAGE_PAGE_GENERIC_DESKTOP && report->usage == HID_USAGE_MOUSE) {
-                            mouse_reports[key].report_id = report->report_id;
-                            mouse_reports[key].input_len = report->input_len;
-                            mouse_reports[key].mouse_x_bit_index = report->mouse_x_bit_index;
-                            mouse_reports[key].mouse_y_bit_index = report->mouse_y_bit_index;
-                            mouse_reports[key].mouse_w_bit_index = report->mouse_w_bit_index;
-                            mouse_reports[key].mouse_x_bit_lenght = report->mouse_x_lenght;
-                            mouse_reports[key].mouse_y_bit_lenght = report->mouse_y_lenght;
-                            mouse_reports[key].mouse_w_bit_lenght = report->mouse_w_lenght;
-                            mouse_reports[key].mouse_buttons_bit_index = report->mouse_buttons_bit_index;
-                            mouse_reports[key].mouse_buttons_amount = report->mouse_buttons_amount;
+        ESP_LOGD("bt_Keyboard handle_report: ", "Amount of CCONTROL reports: %u", multimedia_reports.size());
+    }
 
-                            ESP_LOGD("bt_Keyboard handle_report: ",
-                                     "Amount of MOUSE reports: %u X: %u Y: %u W: %u Xl: %u Yl: %u Wl: %u B: %u Bl: %u", mouse_reports.size(),
-                                     mouse_reports[key].mouse_x_bit_index,
-                                     mouse_reports[key].mouse_y_bit_index,
-                                     mouse_reports[key].mouse_w_bit_index,
-                                     mouse_reports[key].mouse_x_bit_lenght,
-                                     mouse_reports[key].mouse_y_bit_lenght,
-                                     mouse_reports[key].mouse_w_bit_lenght,
-                                     mouse_reports[key].mouse_buttons_bit_index,
-                                     mouse_reports[key].mouse_buttons_amount);
-                        }
+    if (report->usage_page == HID_USAGE_PAGE_GENERIC_DESKTOP && report->usage == HID_USAGE_MOUSE) {
+        mouse_reports[key].report_id = report->report_id;
+        mouse_reports[key].input_len = report->input_len;
+        mouse_reports[key].mouse_x_bit_index = report->mouse_x_bit_index;
+        mouse_reports[key].mouse_y_bit_index = report->mouse_y_bit_index;
+        mouse_reports[key].mouse_w_bit_index = report->mouse_w_bit_index;
+        mouse_reports[key].mouse_x_bit_lenght = report->mouse_x_lenght;
+        mouse_reports[key].mouse_y_bit_lenght = report->mouse_y_lenght;
+        mouse_reports[key].mouse_w_bit_lenght = report->mouse_w_lenght;
+        mouse_reports[key].mouse_buttons_bit_index = report->mouse_buttons_bit_index;
+        mouse_reports[key].mouse_buttons_amount = report->mouse_buttons_amount;
 
-                        temp_usages_array.clear();
-                        s_usages_count = 0;
-                        return 0;
-                    }
+        ESP_LOGD("bt_Keyboard handle_report: ",
+                 "Amount of MOUSE reports: %u X: %u Y: %u W: %u Xl: %u Yl: %u Wl: %u B: %u Bl: %u", mouse_reports.size(),
+                 mouse_reports[key].mouse_x_bit_index,
+                 mouse_reports[key].mouse_y_bit_index,
+                 mouse_reports[key].mouse_w_bit_index,
+                 mouse_reports[key].mouse_x_bit_lenght,
+                 mouse_reports[key].mouse_y_bit_lenght,
+                 mouse_reports[key].mouse_w_bit_lenght,
+                 mouse_reports[key].mouse_buttons_bit_index,
+                 mouse_reports[key].mouse_buttons_amount);
+    }
 
-                    int16_t BTKeyboard::getBits(const void *Data, uint16_t StartBit, uint16_t NumBits)
-                    {
+    temp_usages_array.clear();
+    s_usages_count = 0;
+    return 0;
+}
 
-                        // get a pointer to the starting byte...
-                        const uint8_t *pData = &(static_cast<const uint8_t *>(Data)[StartBit / 8]);
+int16_t BTKeyboard::getBits(const void *Data, uint16_t StartBit, uint16_t NumBits)
+{
 
-                        uint16_t data;
-                        uint16_t signBit;
-                        uint16_t mask;
-                        uint16_t extendMask;
-                        uint16_t startBit;
-                        uint16_t lastByte;
+    // get a pointer to the starting byte...
+    const uint8_t *pData = &(static_cast<const uint8_t *>(Data)[StartBit / 8]);
 
-                        startBit = StartBit & 7;
-                        lastByte = (NumBits - 1) / 8;
+    uint16_t data;
+    uint16_t signBit;
+    uint16_t mask;
+    uint16_t extendMask;
+    uint16_t startBit;
+    uint16_t lastByte;
 
-                        /* Pick up the data bytes backwards */
-                        data = 0;
-                        do {
-                            data <<= 8;
-                            data |= *(pData + lastByte);
-                        } while (lastByte--);
+    startBit = StartBit & 7;
+    lastByte = (NumBits - 1) / 8;
 
-                        /* Shift to the right to byte align the least significant bit */
-                        if (startBit > 0) {
-                            data >>= startBit;
-                        }
+    /* Pick up the data bytes backwards */
+    data = 0;
+    do {
+        data <<= 8;
+        data |= *(pData + lastByte);
+    } while (lastByte--);
 
-                        /* Done if 16 bits long */
-                        if (NumBits < 16) {
+    /* Shift to the right to byte align the least significant bit */
+    if (startBit > 0) {
+        data >>= startBit;
+    }
 
-                            /* Mask off the other bits */
-                            mask = 1 << NumBits;
-                            mask--;
-                            data &= mask;
+    /* Done if 16 bits long */
+    if (NumBits < 16) {
 
-                            /* Sign extend the report item */
-                            signBit = 1;
-                            if (NumBits > 1) {
-                                signBit <<= (NumBits - 1);
-                            }
-                            extendMask = (signBit << 1) - 1;
-                            if ((data & signBit) == 0) {
-                                data &= extendMask;
-                            } else {
-                                data |= ~extendMask;
-                            }
-                        }
+        /* Mask off the other bits */
+        mask = 1 << NumBits;
+        mask--;
+        data &= mask;
 
-                        return data;
-                    }
+        /* Sign extend the report item */
+        signBit = 1;
+        if (NumBits > 1) {
+            signBit <<= (NumBits - 1);
+        }
+        extendMask = (signBit << 1) - 1;
+        if ((data & signBit) == 0) {
+            data &= extendMask;
+        } else {
+            data |= ~extendMask;
+        }
+    }
 
-                    void BTKeyboard::set_leds(uint8_t leds)
-                    {
-                        LED_DEVICE_MAP_LOCK();
-                        for (auto& pair: led_device_map) {
-                            led_device_info &info = pair.second;
-                            esp_err_t ret = esp_hidh_dev_output_set(info.dev, info.map_index, info.report_id, &leds, 1);
-                            if (ret != ESP_OK) {
-                                ESP_LOGE(TAG, "Failed to set LED state: %s", esp_err_to_name(ret));
-                            }
-                        }
-                        LED_DEVICE_MAP_UNLOCK();
-                    }
+    return data;
+}
+
+void BTKeyboard::set_leds(uint8_t leds)
+{
+    LED_DEVICE_MAP_LOCK();
+    for (auto& pair: led_device_map) {
+        led_device_info &info = pair.second;
+        esp_err_t ret = esp_hidh_dev_output_set(info.dev, info.map_index, info.report_id, &leds, 1);
+        if (ret != ESP_OK) {
+            ESP_LOGE(TAG, "Failed to set LED state: %s", esp_err_to_name(ret));
+        }
+    }
+    LED_DEVICE_MAP_UNLOCK();
+}

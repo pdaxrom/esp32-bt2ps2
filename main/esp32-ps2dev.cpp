@@ -13,6 +13,12 @@
 namespace esp32_ps2dev
 {
 
+namespace scancodes
+{
+#include "scan_codes_set_2.h"
+#include "scan_codes_set_3.h"
+}
+
 namespace
 {
 constexpr int16_t INVALID_KEY = -1;
@@ -880,7 +886,7 @@ void PS2Mouse::_report()
 
     packet.len = 3 + _has_wheel;
     packet.data[0] = (_button_left) | ((_button_right) << 1) | ((_button_middle) << 2) | (1 << 3) | ((_count_x < 0) << 4) |
-            ((_count_y < 0) << 5) | (_count_x_overflow << 6) | (_count_y_overflow << 7);
+                     ((_count_y < 0) << 5) | (_count_x_overflow << 6) | (_count_y_overflow << 7);
     packet.data[1] = _count_x & 0xFF;
     packet.data[2] = _count_y & 0xFF;
     if (_has_wheel && !_has_4th_and_5th_buttons) {
@@ -898,7 +904,7 @@ void PS2Mouse::_send_status()
     packet.len = 3;
     bool mode = (_mode == Mode::REMOTE_MODE);
     packet.data[0] = (_button_right & 1) | ((_button_middle & 1) << 1) | ((_button_left & 1) << 2) | ((0) << 3) |
-            (((uint8_t)_scale & 1) << 4) | ((_data_reporting_enabled & 1) << 5) | ((mode & 1) << 6) | ((0) << 7);
+                     (((uint8_t)_scale & 1) << 4) | ((_data_reporting_enabled & 1) << 5) | ((mode & 1) << 6) | ((0) << 7);
     packet.data[1] = (uint8_t)_resolution;
     packet.data[2] = _sample_rate;
     send_packet(&packet);
@@ -1020,7 +1026,7 @@ int PS2Keyboard::reply_to_host(uint8_t host_cmd)
             delay(1);
         }
         _data_reporting_enabled =
-                true; // some systems don't enable data reporting after issuing a RESET command, so we do it by default
+            true; // some systems don't enable data reporting after issuing a RESET command, so we do it by default
         _scan_code_set = 2;
         apply_default_key_behaviors();
         break;

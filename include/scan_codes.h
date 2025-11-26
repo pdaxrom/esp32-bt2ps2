@@ -137,7 +137,5 @@ typedef enum {
 
 constexpr size_t KEY_COUNT = static_cast<size_t>(Key::K_MEDIA_WWW_FAVORITES) + 1;
 
-#include "scan_codes_set_2.h"
-#include "scan_codes_set_3.h"
 }  // namespace scancodes
 } // namespace esp32_ps2dev
