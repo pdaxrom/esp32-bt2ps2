@@ -138,8 +138,6 @@ void handle_modifier_changes(uint8_t newModifiers, uint8_t oldModifiers)
     }
 }
 
-constexpr uint8_t CAPS_LOCK_HID = 0x39;
-
 void handle_typematic(const BTKeyboard::KeyInfo &infoBuf, int &typematicLeft, int cycle)
 {
     if (!infoBuf.keys[0])
@@ -158,7 +156,7 @@ void handle_typematic(const BTKeyboard::KeyInfo &infoBuf, int &typematicLeft, in
     if (infoBuf.keys[i] == 0)
     {
         uint8_t repeat_key = infoBuf.keys[i - 1];
-        if (repeat_key != CAPS_LOCK_HID && keyboard.allows_typematic(repeat_key))
+        if (keyboard.allows_typematic(repeat_key))
         {
             ESP_LOGD(TAG, "Down key: %x", repeat_key);
             keyboard.keyHid_send(repeat_key, true); // Resend the last key

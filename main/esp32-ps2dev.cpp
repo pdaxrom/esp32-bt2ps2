@@ -201,6 +201,19 @@ namespace esp32_ps2dev
     constexpr KeyBehavior BEHAVIOR_MAKE_ONLY{true, false, false};
     constexpr KeyBehavior BEHAVIOR_TYP_MAKE_BREAK{true, true, true};
 
+    // PC_AT_Technical_Reference_Mar86.pdf
+    // page 4-58
+    constexpr std::array SET3_DEFAULT_MAKE_BREAK_CODES = {
+        0x14, 0x12, 0x59, 0x11, 0x19,
+    };
+    constexpr std::array SET3_DEFAULT_MAKE_ONLY_CODES = {
+        0x39, 0x58, 0x67, 0x6E, 0x65, 0x6F, 0x6D, 0x76,
+        0x6C, 0x6B, 0x69, 0x77, 0x75, 0x73, 0x72, 0x70,
+        0x7E, 0x74, 0x7A, 0x71, 0x84, 0x79, 0x08, 0x07,
+        0x0F, 0x17, 0x1F, 0x27, 0x2F, 0x37, 0x3F, 0x47,
+        0x4F, 0x56, 0x5E, 0x57, 0x5F, 0x62,
+    };
+
     constexpr uint16_t RATE_CYCLE_TABLE[32] = {
         33, 37, 40, 46, 50, 54, 58, 63,
         67, 72, 77, 83, 90, 96, 105, 112,
@@ -936,13 +949,29 @@ namespace esp32_ps2dev
     delay(200);
     write(0xAA);
     xSemaphoreGive(_mutex_bus);
-    apply_behavior_to_all(BEHAVIOR_TYP_MAKE_BREAK);
+    apply_default_key_behaviors();
     update_typematic(_typematic_config);
   }
   void PS2Keyboard::apply_behavior_to_all(const KeyBehavior &behavior)
   {
     for (auto &entry : _key_behaviors)
       entry = behavior;
+  }
+  void PS2Keyboard::apply_default_key_behaviors()
+  {
+    apply_behavior_to_all(BEHAVIOR_TYP_MAKE_BREAK);
+    if (_scan_code_set != 3)
+    {
+      return;
+    }
+    const auto apply_for_codes = [this](const auto &codes, const KeyBehavior &behavior) {
+      for (auto code : codes)
+      {
+        configure_specific_key(code, behavior);
+      }
+    };
+    apply_for_codes(SET3_DEFAULT_MAKE_BREAK_CODES, BEHAVIOR_MAKE_BREAK);
+    apply_for_codes(SET3_DEFAULT_MAKE_ONLY_CODES, BEHAVIOR_MAKE_ONLY);
   }
   void PS2Keyboard::set_key_behavior(scancodes::Key key, const KeyBehavior &behavior)
   {
@@ -1010,7 +1039,7 @@ namespace esp32_ps2dev
         delay(1);
       _data_reporting_enabled = true; // some systems don't enable data reporting after issuing a RESET command, so we do it by default
       _scan_code_set = 2;
-      apply_behavior_to_all(BEHAVIOR_TYP_MAKE_BREAK);
+      apply_default_key_behaviors();
       break;
     case Command::RESEND: // resend
 #if defined(_ESP32_PS2DEV_DEBUG_)
@@ -1024,7 +1053,7 @@ namespace esp32_ps2dev
 #endif // _ESP32_PS2DEV_DEBUG_
        // enter stream mode
       ack();
-      apply_behavior_to_all(BEHAVIOR_TYP_MAKE_BREAK);
+      apply_default_key_behaviors();
       break;
     case Command::DISABLE_DATA_REPORTING: // disable data reporting
 #if defined(_ESP32_PS2DEV_DEBUG_)
@@ -1076,7 +1105,7 @@ namespace esp32_ps2dev
           break;
         } else if (val == 2 || val == 3) {
           _scan_code_set = val;
-          apply_behavior_to_all(BEHAVIOR_TYP_MAKE_BREAK);
+          apply_default_key_behaviors();
         }
       }
       break;

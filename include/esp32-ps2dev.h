@@ -247,6 +247,7 @@ namespace esp32_ps2dev
     int _scan_code_set = 2;
     std::array<KeyBehavior, scancodes::KEY_COUNT> _key_behaviors{};
     void apply_behavior_to_all(const KeyBehavior &behavior);
+    void apply_default_key_behaviors();
     void set_key_behavior(scancodes::Key key, const KeyBehavior &behavior);
     void configure_specific_key(uint8_t scan_code, const KeyBehavior &behavior);
     const KeyBehavior &behavior_for_key(scancodes::Key key) const;
