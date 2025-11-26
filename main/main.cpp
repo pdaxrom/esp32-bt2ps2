@@ -341,7 +341,7 @@ void app_main(void)
             typematicLeft = typematicDelay;
         }
 
-        if (bt_keyboard.wait_for_low_event(info, 0)) {
+        if (bt_keyboard.wait_for_low_event(info, repeat_period)) {
             if (info.modifier != infoBuf.modifier) {
                 handle_modifier_changes((uint8_t)info.modifier, (uint8_t)infoBuf.modifier);
             }
@@ -365,8 +365,6 @@ void app_main(void)
             typematicLeft = typematicDelay; // Typematic timer reset
         } else {
             handle_typematic(infoBuf, typematicLeft, typematicCycle);
-
-            vTaskDelay(repeat_period);
 
             if (!pairingRequested) {
                 gpio_set_level(GPIO_NUM_2, 1); // LED up for every key cycle
