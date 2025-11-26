@@ -66,8 +66,8 @@ static const ModifierAction kModifierActions[] = {
     {0x40, esp32_ps2dev::scancodes::Key::K_RALT, "RALT"},
 };
 
-template <typename KeyType, typename ReleaseFn>
-void handle_key_releases(const KeyType *previous, const KeyType *current, ReleaseFn releaseFn)
+template <typename KeyType, typename HandleFn>
+void handle_key(const KeyType *previous, const KeyType *current, HandleFn fn)
 {
     bool found = false;
     for (int i = 0; i < BTKeyboard::MAX_KEY_COUNT && previous[i]; i++) {
@@ -78,25 +78,7 @@ void handle_key_releases(const KeyType *previous, const KeyType *current, Releas
             }
         }
         if (!found) {
-            releaseFn(previous[i]);
-        }
-        found = false;
-    }
-}
-
-template <typename KeyType, typename PressFn>
-void handle_key_presses(const KeyType *current, const KeyType *previous, PressFn pressFn)
-{
-    bool found = false;
-    for (int i = 0; i < BTKeyboard::MAX_KEY_COUNT && current[i]; i++) {
-        for (int j = 0; j < BTKeyboard::MAX_KEY_COUNT && previous[j]; j++) {
-            if (current[i] == previous[j]) {
-                found = true;
-                break;
-            }
-        }
-        if (!found) {
-            pressFn(current[i]);
+            fn(previous[i]);
         }
         found = false;
     }
@@ -376,14 +358,12 @@ void app_main(void)
                 gpio_set_level(GPIO_NUM_2, 0);
             };
 
-            handle_key_releases<uint8_t>(infoBuf.keys, info.keys, release_key);
-            handle_key_presses<uint8_t>(info.keys, infoBuf.keys, press_key);
+            handle_key<uint8_t>(infoBuf.keys, info.keys, release_key);
+            handle_key<uint8_t>(info.keys, infoBuf.keys, press_key);
 
             infoBuf = info;                 // Now all the keys are handled, we save the state
             typematicLeft = typematicDelay; // Typematic timer reset
-        }
-
-        else {
+        } else {
             handle_typematic(infoBuf, typematicLeft, typematicCycle);
 
             if (!pairingRequested) {
@@ -402,8 +382,7 @@ void app_main(void)
                 if (!gpio_get_level(GPIO_NUM_0)) { // Pairing request via BOOT button (GPIO_0) check
                     vTaskDelay(2000 / portTICK_PERIOD_MS);
                     if (!gpio_get_level(GPIO_NUM_0)) {
-                        pairingAborted =
-                                true;    // User pressed and hold the pairing button for 2sec while it was active. This is an abort request!
+                        pairingAborted = true;    // User pressed and hold the pairing button for 2sec while it was active. This is an abort request!
                     }
                 }
             }
@@ -424,8 +403,8 @@ void app_main(void)
                 gpio_set_level(GPIO_NUM_2, 0);
             };
 
-            handle_key_releases<uint16_t>(infoBufCCONTROL.keys, infoCCONTROL.keys, release_ccontrol);
-            handle_key_presses<uint16_t>(infoCCONTROL.keys, infoBufCCONTROL.keys, press_ccontrol);
+            handle_key<uint16_t>(infoBufCCONTROL.keys, infoCCONTROL.keys, release_ccontrol);
+            handle_key<uint16_t>(infoCCONTROL.keys, infoBufCCONTROL.keys, press_ccontrol);
 
             infoBufCCONTROL = infoCCONTROL; // Now all the keys are handled, we save the state
         }

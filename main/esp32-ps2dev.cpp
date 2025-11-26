@@ -925,6 +925,7 @@ void PS2Keyboard::apply_behavior_to_all(const KeyBehavior &behavior)
 }
 void PS2Keyboard::apply_default_key_behaviors()
 {
+    update_typematic(0x2B);
     apply_behavior_to_all(BEHAVIOR_TYP_MAKE_BREAK);
     if (_scan_code_set != 3) {
         return;
@@ -960,6 +961,9 @@ bool PS2Keyboard::allows_typematic(uint8_t hid_code) const
 
 void PS2Keyboard::update_typematic(uint8_t config)
 {
+#if defined(_ESP32_PS2DEV_DEBUG_)
+    ESP_LOGI(TAG, "typematic config = %02X", config);
+#endif
     _typematic_config = config;
     uint8_t delay_index = (config >> 5) & 0x03;
     if (delay_index > 3) {
@@ -968,6 +972,10 @@ void PS2Keyboard::update_typematic(uint8_t config)
     _typematic_delay_ms = DELAY_TABLE[delay_index];
     uint8_t rate_index = config & 0x1F;
     _typematic_cycle_ms = RATE_CYCLE_TABLE[rate_index];
+
+#if defined(_ESP32_PS2DEV_DEBUG_)
+    ESP_LOGI(TAG, "typematic delay ms = %d, cycle ms = %d", _typematic_delay_ms, _typematic_cycle_ms);
+#endif
 }
 void PS2Keyboard::configure_specific_key(uint8_t scan_code, const KeyBehavior &behavior)
 {
