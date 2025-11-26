@@ -20,40 +20,40 @@
 
 namespace esp32_ps2dev
 {
-  // Time per clock should be 60 to 100 microseconds according to PS/2 specifications.
-  // Thus, half period should be 30 to 50 microseconds.
-  const uint32_t CLK_HALF_PERIOD_MICROS = 40;
-  const uint32_t CLK_QUATER_PERIOD_MICROS = CLK_HALF_PERIOD_MICROS / 2;
-  // I could not find any specification of time between bytes from the PS/2 specification.
-  // Based on observation of the mouse signal waveform using an oscilloscope, there appears to be an interval of 1 to 2 clock cycles.
-  // ref. https://youtu.be/UqRDLWGLCEk
-  const uint32_t BYTE_INTERVAL_MICROS = 500; // in v0.4 was OK: 500, change if not working and you know what you're doing.
-  const int PACKET_QUEUE_LENGTH = 20;
-  const UBaseType_t DEFAULT_TASK_PRIORITY = 10;
-  //const BaseType_t DEFAULT_TASK_CORE = APP_CPU_NUM;
-  const BaseType_t DEFAULT_TASK_CORE = 0;
-  const BaseType_t DEFAULT_TASK_CORE_MOUSE = 1;
-  // The device should check for "HOST_REQUEST_TO_SEND" at a interval not exceeding 10 milliseconds.
-  const uint32_t INTERVAL_CHECKING_HOST_SEND_REQUEST_MILLIS = 9;
-  const uint32_t MOUSE_CLICK_PRESSING_DURATION_MILLIS = 100;
+// Time per clock should be 60 to 100 microseconds according to PS/2 specifications.
+// Thus, half period should be 30 to 50 microseconds.
+const uint32_t CLK_HALF_PERIOD_MICROS = 40;
+const uint32_t CLK_QUATER_PERIOD_MICROS = CLK_HALF_PERIOD_MICROS / 2;
+// I could not find any specification of time between bytes from the PS/2 specification.
+// Based on observation of the mouse signal waveform using an oscilloscope, there appears to be an interval of 1 to 2 clock cycles.
+// ref. https://youtu.be/UqRDLWGLCEk
+const uint32_t BYTE_INTERVAL_MICROS = 500; // in v0.4 was OK: 500, change if not working and you know what you're doing.
+const int PACKET_QUEUE_LENGTH = 20;
+const UBaseType_t DEFAULT_TASK_PRIORITY = 10;
+//const BaseType_t DEFAULT_TASK_CORE = APP_CPU_NUM;
+const BaseType_t DEFAULT_TASK_CORE = 0;
+const BaseType_t DEFAULT_TASK_CORE_MOUSE = 1;
+// The device should check for "HOST_REQUEST_TO_SEND" at a interval not exceeding 10 milliseconds.
+const uint32_t INTERVAL_CHECKING_HOST_SEND_REQUEST_MILLIS = 9;
+const uint32_t MOUSE_CLICK_PRESSING_DURATION_MILLIS = 100;
 
-  class PS2Packet
-  {
-  public:
+class PS2Packet
+{
+public:
     uint8_t len;
     uint8_t data[16];
-  };
+};
 
-  class PS2dev
-  {
-  public:
+class PS2dev
+{
+public:
     PS2dev(int clk, int data);
 
     enum class BusState
     {
-      IDLE,
-      COMMUNICATION_INHIBITED,
-      HOST_REQUEST_TO_SEND,
+        IDLE,
+        COMMUNICATION_INHIBITED,
+        HOST_REQUEST_TO_SEND,
     };
 
     void config(UBaseType_t task_priority, BaseType_t task_core);
@@ -67,7 +67,7 @@ namespace esp32_ps2dev
     QueueHandle_t get_packet_queue_handle();
     int send_packet(PS2Packet *packet);
 
-  protected:
+protected:
     int _ps2clk;
     int _ps2data;
     UBaseType_t _config_task_priority = DEFAULT_TASK_PRIORITY;
@@ -79,59 +79,59 @@ namespace esp32_ps2dev
     void golo(int pin);
     void gohi(int pin);
     void ack();
-  };
+};
 
-  class PS2Mouse : public PS2dev
-  {
-  public:
+class PS2Mouse : public PS2dev
+{
+public:
     PS2Mouse(int clk, int data);
     enum class ResolutionCode : uint8_t
     {
-      RES_1 = 0x00,
-      RES_2 = 0x01,
-      RES_4 = 0x02,
-      RES_8 = 0x03
+        RES_1 = 0x00,
+        RES_2 = 0x01,
+        RES_4 = 0x02,
+        RES_8 = 0x03
     };
     enum class Scale : uint8_t
     {
-      ONE_ONE = 0,
-      TWO_ONE = 1
+        ONE_ONE = 0,
+        TWO_ONE = 1
     };
     enum class Mode : uint8_t
     {
-      REMOTE_MODE = 0,
-      STREAM_MODE = 1,
-      WRAP_MODE = 2
+        REMOTE_MODE = 0,
+        STREAM_MODE = 1,
+        WRAP_MODE = 2
     };
     enum class Command : uint8_t
     {
-      RESET = 0xFF,
-      RESEND = 0xFE,
-      ERROR = 0xFC,
-      ACK = 0xFA,
-      SET_DEFAULTS = 0xF6,
-      DISABLE_DATA_REPORTING = 0xF5,
-      ENABLE_DATA_REPORTING = 0xF4,
-      SET_SAMPLE_RATE = 0xF3,
-      GET_DEVICE_ID = 0xF2,
-      SET_REMOTE_MODE = 0xF0,
-      SET_WRAP_MODE = 0xEE,
-      RESET_WRAP_MODE = 0xEC,
-      READ_DATA = 0xEB,
-      SET_STREAM_MODE = 0xEA,
-      STATUS_REQUEST = 0xE9,
-      SET_RESOLUTION = 0xE8,
-      SET_SCALING_2_1 = 0xE7,
-      SET_SCALING_1_1 = 0xE6,
-      SELF_TEST_PASSED = 0xAA,
+        RESET = 0xFF,
+        RESEND = 0xFE,
+        ERROR = 0xFC,
+        ACK = 0xFA,
+        SET_DEFAULTS = 0xF6,
+        DISABLE_DATA_REPORTING = 0xF5,
+        ENABLE_DATA_REPORTING = 0xF4,
+        SET_SAMPLE_RATE = 0xF3,
+        GET_DEVICE_ID = 0xF2,
+        SET_REMOTE_MODE = 0xF0,
+        SET_WRAP_MODE = 0xEE,
+        RESET_WRAP_MODE = 0xEC,
+        READ_DATA = 0xEB,
+        SET_STREAM_MODE = 0xEA,
+        STATUS_REQUEST = 0xE9,
+        SET_RESOLUTION = 0xE8,
+        SET_SCALING_2_1 = 0xE7,
+        SET_SCALING_1_1 = 0xE6,
+        SELF_TEST_PASSED = 0xAA,
     };
     enum class Button : uint8_t
     {
-      LEFT,
-      RIGHT,
-      MIDDLE,
-      BUTTON_4,
-      BUTTON_5,
+        LEFT,
+        RIGHT,
+        MIDDLE,
+        BUTTON_4,
+        BUTTON_5,
     };
 
     void begin();
@@ -147,7 +147,7 @@ namespace esp32_ps2dev
     void click(Button button);
     void _report();
 
-  protected:
+protected:
     static constexpr char const *TAG = "PS2Mouse";
     void _send_status();
     void _save_internal_state_to_nvs();
@@ -173,50 +173,50 @@ namespace esp32_ps2dev
     uint8_t _button_middle = 0;
     uint8_t _button_4th = 0;
     uint8_t _button_5th = 0;
-  };
+};
 
-  class PS2Keyboard : public PS2dev
-  {
-  public:
+class PS2Keyboard : public PS2dev
+{
+public:
     PS2Keyboard(int clk, int data);
     int reply_to_host(uint8_t host_cmd);
     enum class Command
     {
-      RESET = 0xFF,
-      RESEND = 0xFE,
-      ACK = 0xFA,
-      SET_SPECIFIC_KEY_TO_MAKE_ONLY = 0xFD,
-      SET_SPECIFIC_KEY_TO_MAKE_RELEASE = 0xFC,
-      SET_SPECIFIC_KEY_TO_TYPEMATIC_AUTOREPEAT_ONLY=0xFB,
-      SET_ALL_KEYS_TO_TYPEMATIC_AUTOREPEAT_MAKE_RELEASE = 0xFA,
-      SET_ALL_KEYS_TO_MAKE_ONLY = 0xF9,
-      SET_ALL_KEYS_TO_MAKE_RELEASE = 0xF8,
-      SET_ALL_KEYS_TO_TYPEMATIC_AUTOREPEAT_ONLY = 0xF7,
-      SET_DEFAULTS = 0xF6,
-      DISABLE_DATA_REPORTING = 0xF5,
-      ENABLE_DATA_REPORTING = 0xF4,
-      SET_TYPEMATIC_RATE = 0xF3,
-      GET_DEVICE_ID = 0xF2,
-      SET_SCAN_CODE_SET = 0xF0,
-      ECHO = 0xEE,
-      SET_RESET_LEDS = 0xED,
-      BAT_SUCCESS = 0xAA,
+        RESET = 0xFF,
+        RESEND = 0xFE,
+        ACK = 0xFA,
+        SET_SPECIFIC_KEY_TO_MAKE_ONLY = 0xFD,
+        SET_SPECIFIC_KEY_TO_MAKE_RELEASE = 0xFC,
+        SET_SPECIFIC_KEY_TO_TYPEMATIC_AUTOREPEAT_ONLY=0xFB,
+        SET_ALL_KEYS_TO_TYPEMATIC_AUTOREPEAT_MAKE_RELEASE = 0xFA,
+        SET_ALL_KEYS_TO_MAKE_ONLY = 0xF9,
+        SET_ALL_KEYS_TO_MAKE_RELEASE = 0xF8,
+        SET_ALL_KEYS_TO_TYPEMATIC_AUTOREPEAT_ONLY = 0xF7,
+        SET_DEFAULTS = 0xF6,
+        DISABLE_DATA_REPORTING = 0xF5,
+        ENABLE_DATA_REPORTING = 0xF4,
+        SET_TYPEMATIC_RATE = 0xF3,
+        GET_DEVICE_ID = 0xF2,
+        SET_SCAN_CODE_SET = 0xF0,
+        ECHO = 0xEE,
+        SET_RESET_LEDS = 0xED,
+        BAT_SUCCESS = 0xAA,
     };
 
     enum KeyLed: uint8_t {
-      KEYBOARD_LED_SCROLLLOCK = 1 << 0,
-      KEYBOARD_LED_NUMLOCK = 1 << 1,
-      KEYBOARD_LED_CAPSLOCK = 1 << 2,
+        KEYBOARD_LED_SCROLLLOCK = 1 << 0,
+        KEYBOARD_LED_NUMLOCK = 1 << 1,
+        KEYBOARD_LED_CAPSLOCK = 1 << 2,
     };
 
     struct KeyBehavior
     {
-      bool make = true;
-      bool break_code = true;
-      bool typematic = true;
+        bool make = true;
+        bool break_code = true;
+        bool typematic = true;
     };
 
-  public:
+public:
     typedef void (*_leds_callback)(uint8_t);
 
     void begin();
@@ -239,7 +239,7 @@ namespace esp32_ps2dev
     void set_leds_callback(_leds_callback cb) { leds_callback = cb; }
     void trigger_leds_callback(uint8_t leds) { if (leds_callback != nullptr) leds_callback(leds); }
 
-  protected:
+protected:
     bool _data_reporting_enabled = true;
     bool _led_scroll_lock = false;
     bool _led_num_lock = false;
@@ -257,11 +257,11 @@ namespace esp32_ps2dev
     uint16_t _typematic_delay_ms = 500;
     uint16_t _typematic_cycle_ms = 50;
     _leds_callback leds_callback = nullptr;
-  };
+};
 
-  void _taskfn_process_host_request(void *arg);
-  void _taskfn_send_packet(void *arg);
-  void _taskfn_poll_mouse_count(void *arg);
+void _taskfn_process_host_request(void *arg);
+void _taskfn_send_packet(void *arg);
+void _taskfn_poll_mouse_count(void *arg);
 
 } // namespace esp32_ps2dev
 
