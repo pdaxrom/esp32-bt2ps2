@@ -1,0 +1,6 @@
+# Compatible with the existing encrypted board; encryption remains an optional local setting.
+# Name,   Type, SubType, Offset,   Size,   Flags
+nvs,      data, nvs,     0xC000,   0x6000,
+phy_init, data, phy,     0x12000,  0x1000,
+factory,  app,  factory, 0x20000,  1500K,
+nvs_key,  data, nvs_keys,0x197000, 0x1000, encrypted

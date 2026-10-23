@@ -133,9 +133,10 @@ typedef enum {
     K_MEDIA_WWW_STOP,
     K_MEDIA_WWW_REFRESH,
     K_MEDIA_WWW_FAVORITES,
+    K_ISO_BACKSLASH,
 } Key;
 
-constexpr size_t KEY_COUNT = static_cast<size_t>(Key::K_MEDIA_WWW_FAVORITES) + 1;
+constexpr size_t KEY_COUNT = static_cast<size_t>(Key::K_ISO_BACKSLASH) + 1;
 
 }  // namespace scancodes
 } // namespace esp32_ps2dev

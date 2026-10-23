@@ -257,6 +257,10 @@ static const uint8_t BREAK_K_MEDIA_WWW_STOP[] = {0xE0, 0xF0, 0x28};
 static const uint8_t BREAK_K_MEDIA_WWW_REFRESH[] = {0xE0, 0xF0, 0x20};
 static const uint8_t BREAK_K_MEDIA_WWW_FAVORITES[] = {0xE0, 0xF0, 0x18};
 
+// ISO key: https://github.com/qemu/keycodemapdb/blob/master/data/keymaps.csv
+static const uint8_t MAKE_K_ISO_BACKSLASH[] = {0x61};
+static const uint8_t BREAK_K_ISO_BACKSLASH[] = {0xF0, 0x61};
+
 static const uint8_t* const MAKE_CODES[] = {MAKE_K_A,
                                             MAKE_K_B,
                                             MAKE_K_C,
@@ -381,7 +385,8 @@ static const uint8_t* const MAKE_CODES[] = {MAKE_K_A,
                                             MAKE_K_MEDIA_WWW_FORWARD,
                                             MAKE_K_MEDIA_WWW_STOP,
                                             MAKE_K_MEDIA_WWW_REFRESH,
-                                            MAKE_K_MEDIA_WWW_FAVORITES
+                                            MAKE_K_MEDIA_WWW_FAVORITES,
+                                            MAKE_K_ISO_BACKSLASH
                                            };
 
 static const uint8_t MAKE_CODES_LEN[] = {sizeof(MAKE_K_A),
@@ -508,7 +513,8 @@ static const uint8_t MAKE_CODES_LEN[] = {sizeof(MAKE_K_A),
                                          sizeof(MAKE_K_MEDIA_WWW_FORWARD),
                                          sizeof(MAKE_K_MEDIA_WWW_STOP),
                                          sizeof(MAKE_K_MEDIA_WWW_REFRESH),
-                                         sizeof(MAKE_K_MEDIA_WWW_FAVORITES)
+                                         sizeof(MAKE_K_MEDIA_WWW_FAVORITES),
+                                            sizeof(MAKE_K_ISO_BACKSLASH)
                                         };
 
 static const uint8_t* const BREAK_CODES[] = {BREAK_K_A,
@@ -635,7 +641,8 @@ static const uint8_t* const BREAK_CODES[] = {BREAK_K_A,
                                              BREAK_K_MEDIA_WWW_FORWARD,
                                              BREAK_K_MEDIA_WWW_STOP,
                                              BREAK_K_MEDIA_WWW_REFRESH,
-                                             BREAK_K_MEDIA_WWW_FAVORITES
+                                             BREAK_K_MEDIA_WWW_FAVORITES,
+                                            BREAK_K_ISO_BACKSLASH
                                             };
 
 static const uint8_t BREAK_CODES_LEN[] = {sizeof(BREAK_K_A),
@@ -762,5 +769,6 @@ static const uint8_t BREAK_CODES_LEN[] = {sizeof(BREAK_K_A),
                                           sizeof(BREAK_K_MEDIA_WWW_FORWARD),
                                           sizeof(BREAK_K_MEDIA_WWW_STOP),
                                           sizeof(BREAK_K_MEDIA_WWW_REFRESH),
-                                          sizeof(BREAK_K_MEDIA_WWW_FAVORITES)
+                                          sizeof(BREAK_K_MEDIA_WWW_FAVORITES),
+                                            sizeof(BREAK_K_ISO_BACKSLASH)
                                          };

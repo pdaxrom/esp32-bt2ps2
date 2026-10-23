@@ -255,6 +255,10 @@ static const uint8_t BREAK_SET3_K_MEDIA_WWW_STOP[] = {0xF0, 0x28};
 static const uint8_t BREAK_SET3_K_MEDIA_WWW_REFRESH[] = {0xF0, 0x20};
 static const uint8_t BREAK_SET3_K_MEDIA_WWW_FAVORITES[] = {0xF0, 0x18};
 
+// ISO key: https://github.com/qemu/keycodemapdb/blob/master/data/keymaps.csv
+static const uint8_t MAKE_SET3_K_ISO_BACKSLASH[] = {0x13};
+static const uint8_t BREAK_SET3_K_ISO_BACKSLASH[] = {0xF0, 0x13};
+
 static const uint8_t* const MAKE_SET3_CODES[] = {MAKE_SET3_K_A,
                                                  MAKE_SET3_K_B,
                                                  MAKE_SET3_K_C,
@@ -379,7 +383,8 @@ static const uint8_t* const MAKE_SET3_CODES[] = {MAKE_SET3_K_A,
                                                  MAKE_SET3_K_MEDIA_WWW_FORWARD,
                                                  MAKE_SET3_K_MEDIA_WWW_STOP,
                                                  MAKE_SET3_K_MEDIA_WWW_REFRESH,
-                                                 MAKE_SET3_K_MEDIA_WWW_FAVORITES
+                                                 MAKE_SET3_K_MEDIA_WWW_FAVORITES,
+                                            MAKE_SET3_K_ISO_BACKSLASH
                                                 };
 
 static const uint8_t MAKE_SET3_CODES_LEN[] = {sizeof(MAKE_SET3_K_A),
@@ -506,7 +511,8 @@ static const uint8_t MAKE_SET3_CODES_LEN[] = {sizeof(MAKE_SET3_K_A),
                                               sizeof(MAKE_SET3_K_MEDIA_WWW_FORWARD),
                                               sizeof(MAKE_SET3_K_MEDIA_WWW_STOP),
                                               sizeof(MAKE_SET3_K_MEDIA_WWW_REFRESH),
-                                              sizeof(MAKE_SET3_K_MEDIA_WWW_FAVORITES)
+                                              sizeof(MAKE_SET3_K_MEDIA_WWW_FAVORITES),
+                                            sizeof(MAKE_SET3_K_ISO_BACKSLASH)
                                              };
 
 static const uint8_t* const BREAK_SET3_CODES[] = {BREAK_SET3_K_A,
@@ -633,7 +639,8 @@ static const uint8_t* const BREAK_SET3_CODES[] = {BREAK_SET3_K_A,
                                                   BREAK_SET3_K_MEDIA_WWW_FORWARD,
                                                   BREAK_SET3_K_MEDIA_WWW_STOP,
                                                   BREAK_SET3_K_MEDIA_WWW_REFRESH,
-                                                  BREAK_SET3_K_MEDIA_WWW_FAVORITES
+                                                  BREAK_SET3_K_MEDIA_WWW_FAVORITES,
+                                            BREAK_SET3_K_ISO_BACKSLASH
                                                  };
 
 static const uint8_t BREAK_SET3_CODES_LEN[] = {sizeof(BREAK_SET3_K_A),
@@ -760,5 +767,6 @@ static const uint8_t BREAK_SET3_CODES_LEN[] = {sizeof(BREAK_SET3_K_A),
                                                sizeof(BREAK_SET3_K_MEDIA_WWW_FORWARD),
                                                sizeof(BREAK_SET3_K_MEDIA_WWW_STOP),
                                                sizeof(BREAK_SET3_K_MEDIA_WWW_REFRESH),
-                                               sizeof(BREAK_SET3_K_MEDIA_WWW_FAVORITES)
+                                               sizeof(BREAK_SET3_K_MEDIA_WWW_FAVORITES),
+                                            sizeof(BREAK_SET3_K_ISO_BACKSLASH)
                                               };

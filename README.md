@@ -103,7 +103,7 @@ Once succesfully built and flashed, you're ready to rock! (your BLE keyboard on 
 
 Once powered up and first of all, the code will create and init an `esp32_ps2dev::PS2Keyboard` object, so it can start to talk to the computer as soon as possible. This is critical because during boot the BIOS can send different commands to the module to test the presence of the keyboard.
 
-After PS/2 init, the module scans for nearby Bluetooth and BLE devices. If the last bonded keyboard is in range, it will try to connect to it using the keys stored on the NVS flash, so no pairing is needed for every connection. If it doesn't detect a previously bonded device, it will try to connect to the nearest keyboard in pairing mode. If both processes fail, it will wait one second and scan again until it finds anything.
+After PS/2 init, the module scans for nearby Bluetooth and BLE devices. It first requests connections to known BLE devices using the keys stored in NVS. In pairing mode, if none of those requests succeeds, it tries the available HID candidates. Selection follows scan-list order; signal strength does not determine the choice. Classic devices can also initiate reconnection. If connection attempts fail, scanning is repeated.
 
 IMPORTANT: Is recommended to do the pairing to the keyboard BEFORE connecing the board to a PS/2 port. For this, connect a charger or power bank to the ESP's USB port and pair your device more comfortably.
 
@@ -154,7 +154,41 @@ Please note that pairing is only done after power up. If you wish to pair a new 
 
 In case something doesn't work, you'll need to debug. 
 
-If the blue light on the module lights up and your keyboard connects, but it doesn't work, first of all reset your system. If it still doesn't work, then you'll need to enable debugging in the `esp32-ps2dev.cpp` file using `#DEFINE _ESP32_PS2DEV_DEBUG_`. Check for "PS/2 command received" messages and see where it hangs, or what the BIOS doesn't like. This is advanced so if you need help, make a new issue.
+If your keyboard connects but does not work, inspect the serial logs and run the host tests below. The PS/2 implementations are in `ps2_bus.cpp`, `ps2_keyboard.cpp` and `ps2_mouse.cpp`. For BIOS compatibility failures, record the host commands and bus signals on the board.
+
+# Code structure and validation
+
+The application is organized around explicit ownership of state:
+
+| Module | Responsibility |
+| --- | --- |
+| `main/main.cpp` | GPIO/NVS initialization and the input loop |
+| `bluetooth_host.cpp`, `bluetooth_input.cpp` | ESP-IDF discovery, connections, input delivery and keyboard LED output |
+| `hid_report.cpp` | Descriptor parsing and bounded report decoding, independent of ESP-IDF |
+| `input_state.cpp` | Held state per device, map and Report ID; aggregate state and cumulative motion |
+| `input_bridge.cpp` | Key transitions, retry after queue backpressure and typematic deadlines |
+| `connection_manager.cpp`, `status_led.cpp` | One scanning task and one owner of the status LED; asynchronous six-digit Passkey display |
+| `ps2_bus.cpp`, `ps2_keyboard.cpp`, `ps2_mouse.cpp` | Wire transport and separate keyboard/mouse protocol implementations |
+
+HID callbacks own the device/report registry. They send copied snapshots through a bounded queue. The input loop owns the bridge. One worker per PS/2 port receives commands and sends replies/input packets under the bus mutex; separate recursive mutexes protect device state. A bridge keyboard update holds the state mutex so that RESET cannot interrupt its revision check and enqueue operations. Motion and buttons are applied together; a bounded button-transition queue preserves clicks occurring between mouse sampler ticks. Keyboard/Consumer usages mapping to the same PS/2 key share a held state, while Consumer-only input does not start typematic.
+
+When the input queue fills, it is resynchronized to the latest held state, with a warning. Cumulative motion prevents losing relative movement during this recovery. Short keyboard taps can still disappear when newer snapshots supersede unsent transitions during sustained input/PS/2 backpressure. Pending releases are retried before any new makes; mouse counters remain intact if queuing fails. Button-queue overload retains its latest state and emits a warning. Host inhibition pauses transmission; a frame interrupted while CLOCK remains low is retried. Command replies retain their position and have priority over stream data. A new host request can replace an interrupted reply; parameters are processed as subsequent requests, without blocking reception. RESET/mode changes invalidate packets prepared in the previous state; the bridge reapplies held keys after the keyboard state changes. These mechanisms are checked in a GPIO model; electrical timing still requires hardware validation.
+
+A byte is complete once the host samples its stop bit. CLOCK inhibition after that point delays the next byte and must not cause the completed byte to be retried. This is covered by the GPIO integration test and a physical u186 delayed-read capture: 15 Enter presses produced 15 complete make/break sequences with no extra bytes. The previously failing capture produced repeated make codes after the first release.
+
+The HID decoder supports keyboard arrays and variable fields, Consumer Control arrays/bitmaps, and relative mouse axes/buttons, including fields crossing byte boundaries and ordered mixtures of Usage/range items. Decoded fields can be up to 32 bits, including unsigned Logical Maximum. Wider Feature/Output items do not invalidate keyboard input; constants/vendor input retain their offsets without decoding. Malformed or unsupported descriptors are rejected transactionally. Long items and alternative usage sets (Delimiter) are unsupported; limits are 8192 input bits per report, 256 input fields per descriptor, 1024 explicit usages/ranges per local set, and 32 simultaneously held Consumer usages across devices. Only keys present in the PS/2 mapping are emitted. Keyboard rollover reports retain the previous valid state. Absolute pointing devices need a separate conversion policy.
+
+Host tests require a C++17 compiler with AddressSanitizer and UndefinedBehaviorSanitizer:
+
+```sh
+./tests/run_host_tests.sh
+```
+
+They cover descriptor/report boundaries, usage ranges, mixed fields, multiple devices/maps, disconnects, modifier ordering, typematic, queue retries and mouse packet encoding, plus 20,000 deterministic randomized inputs. Integration tests compile the actual PS/2 driver with FreeRTOS/GPIO substitutes and exercise delayed command parameters, scan-set queries, LED commands, RESET/RESEND, stream/remote/wrap, interrupted replies/frames, queue recovery, short clicks, shared key mappings and timer rollover. These checks do not replace testing electrical timing, reconnects, pairing and host compatibility on a real board.
+
+The refactored tree has been built with ESP-IDF `v6.1-dev-4811-gfce70533fa`, target `esp32`, both with the existing encrypted-board configuration and with a fresh configuration from `sdkconfig.defaults`. The older v5.3 instructions above describe the original release; that SDK has not been revalidated for this refactor.
+
+`partitions.csv` gives the factory application 1500 KiB and includes an NVS keys partition. Defaults do not enable Flash Encryption or NVS encryption. Existing local security settings remain in `sdkconfig`; the partition addresses match the board configuration recorded in `TODO.md`. When changing partition layouts, flash the complete image set using the procedure appropriate for the board's encryption state.
 
 # TODO
  * Test on many keyboards and mouses.
